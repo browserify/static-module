@@ -24,7 +24,7 @@ module.exports = function (modules, opts) {
             output.emit('error', new Error(err.message + ' (' + file + ')'));
         }
         */
-        var src = parse(body);
+        var src = parse(body.toString('utf8'));
         if (pending === 0) finish(src);
     }), output);
     
@@ -50,7 +50,7 @@ module.exports = function (modules, opts) {
     }
     
     function parse (body) {
-        return falafel(body, function (node) {
+        var output = falafel(body, function (node) {
             if (isRequire(node) && has(modules, node.arguments[0].value)
             && node.parent.type === 'VariableDeclarator'
             && node.parent.id.type === 'Identifier') {
@@ -74,6 +74,7 @@ module.exports = function (modules, opts) {
                 traverse(node);
             }
         });
+        return output;
     }
     
     function traverse (node) {
