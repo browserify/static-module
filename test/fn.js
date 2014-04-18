@@ -4,7 +4,7 @@ var staticModule = require('../');
 var fs = require('fs');
 var path = require('path');
 
-test('transform function', function (t) {
+test('function', function (t) {
     t.plan(1);
     
     var sm = staticModule({ beep: function (n) { return n * 111 } });
@@ -15,5 +15,5 @@ test('transform function', function (t) {
 });
 
 function readStream (file) {
-    return fs.createReadStream(path.join(__dirname, 'transform', file));
+    return fs.createReadStream(path.join(__dirname, 'fn', file));
 }
