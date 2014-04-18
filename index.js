@@ -1,20 +1,30 @@
 var fs = require('fs');
 var path = require('path');
 
-var through = require('through');
+var through = require('through2');
+var concat = require('concat-stream');
+var duplexer = require('duplexer2');
 var falafel = require('falafel');
 var unparse = require('escodegen').generate;
 
-module.exports = function (file) {
-    if (/\.json$/.test(file)) return through();
-    var data = '';
+module.exports = function (modules, opts) {
     var fsNames = {};
-    var vars = [ '__filename', '__dirname' ];
-    var dirname = path.dirname(file);
+    if (!opts) opts = {};
+    var vars = opts.vars || {};
     var pending = 0;
     
-    var tr = through(write, end);
-    return tr;
+    var output = through();
+    return duplexer(concat(function (body) {
+        /*
+        try { var src = parse() }
+        catch (err) {
+            output.emit('error', new Error(err.message + ' (' + file + ')'));
+        }
+        */
+        var src = parse(body);
+        
+        if (pending === 0) finish(src);
+    }), output);
     
     function containsUndefinedVariable (node) {
         if (node.type === 'Identifier') {
@@ -30,27 +40,15 @@ module.exports = function (file) {
         else {
             return false;
         }
+    };
+    
+    function finish (src) {
+        output.push(String(src));
+        output.push(null);
     }
     
-    function write (buf) { data += buf }
-    function end () {
-        try { var output = parse() }
-        catch (err) {
-            this.emit('error', new Error(
-                err.toString().replace('Error: ', '') + ' (' + file + ')')
-            );
-        }
-        
-        if (pending === 0) finish(output);
-    }
-    
-    function finish (output) {
-        tr.queue(String(output));
-        tr.queue(null);
-    }
-    
-    function parse () {
-        var output = falafel(data, function (node) {
+    function parse (body) {
+        var src = falafel(body, function (node) {
             if (isRequire(node) && node.arguments[0].value === 'fs'
             && node.parent.type === 'VariableDeclarator'
             && node.parent.id.type === 'Identifier') {
@@ -111,10 +109,10 @@ module.exports = function (file) {
                     );
                 }
                 tr.emit('file', fpath);
-                if (--pending === 0) finish(output);
+                if (--pending === 0) finish(src);
             });
         });
-        return output;
+        return src;
     }
     
     function isFs (p) {
