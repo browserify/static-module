@@ -6,9 +6,12 @@ var concat = require('concat-stream');
 var duplexer = require('duplexer2');
 var falafel = require('falafel');
 var unparse = require('escodegen').generate;
+var inspect = require('object-inspect');
+var evaluate = require('static-eval');
+var copy = require('shallow-copy');
 
 module.exports = function (modules, opts) {
-    var fsNames = {};
+    var varNames = {};
     if (!opts) opts = {};
     var vars = opts.vars || {};
     var pending = 0;
@@ -22,7 +25,6 @@ module.exports = function (modules, opts) {
         }
         */
         var src = parse(body);
-        
         if (pending === 0) finish(src);
     }), output);
     
@@ -48,89 +50,52 @@ module.exports = function (modules, opts) {
     }
     
     function parse (body) {
-        var src = falafel(body, function (node) {
-            if (isRequire(node) && node.arguments[0].value === 'fs'
+        return falafel(body, function (node) {
+            if (isRequire(node) && has(modules, node.arguments[0].value)
             && node.parent.type === 'VariableDeclarator'
             && node.parent.id.type === 'Identifier') {
-                fsNames[node.parent.id.name] = true;
+                varNames[node.parent.id.name] = node.arguments[0].value;
+                var decs = node.parent.parent.declarations;
+                if (decs.length === 1) {
+                    node.parent.parent.update('');
+                }
+                else {
+                    node.parent.update('');
+                }
             }
-            if (isRequire(node) && node.arguments[0].value === 'fs'
+            if (isRequire(node) && has(modules, node.arguments[0].value)
             && node.parent.type === 'AssignmentExpression'
             && node.parent.left.type === 'Identifier') {
-                fsNames[node.parent.left.name] = true;
+                varNames[node.parent.left.name] = node.arguments[0].value;
+                node.update('{}');
             }
             
-            if (node.type !== 'CallExpression' || !isFs(node.callee)) return;
-            
-            var type;
-            if (isRFS(node.callee.property)) type = 'sync';
-            else if (isRF(node.callee.property)) type = 'async';
-            if (!type) return;
-            
-            var args = node.arguments;
-            var canBeInlined = !containsUndefinedVariable(args[0]);
-            if (!canBeInlined) return;
-            
-            var t = 'return ' + unparse(args[0]);
-            var fpath = Function(vars, t)(file, dirname);
-            
-            var enc = null;
-            if (args[1] && !/^Function/.test(args[1].type)) {
-                enc = Function('return ' + unparse(args[1]))()
+            if (node.type === 'Identifier' && varNames[node.name]) {
+                traverse(node);
             }
-            
-            ++ pending;
-            if (enc && typeof enc === 'object' && enc.encoding) {
-                enc = enc.encoding;
-            }
-            
-            var isBuffer = false;
-            if (enc === null || enc === undefined) {
-                isBuffer = true;
-                enc = 'base64';
-            }
-            fs.readFile(fpath, enc, function (err, src) {
-                if (err) return tr.emit('error', errorWithFile(file, err));
-                var code = isBuffer
-                    ? 'Buffer(' + JSON.stringify(src) + ',"base64")'
-                    : JSON.stringify(src)
-                ;
-                if (type === 'sync') {
-                    node.update(code);
-                }
-                else if (type === 'async') {
-                    var cb = args[2] || args[1];
-                    if (!cb) return;
-                    node.update(
-                        'process.nextTick(function () {'
-                        + '(' + cb.source() + ')'
-                        + '(null,' + code + ')'
-                        + '})'
-                    );
-                }
-                tr.emit('file', fpath);
-                if (--pending === 0) finish(src);
-            });
         });
-        return src;
     }
     
-    function isFs (p) {
-        if (!p) return false;
-        if (p.type !== 'MemberExpression') return false;
-        return (p.object.type === 'Identifier' && fsNames[p.object.name])
-            || isRequire(p.object)
-        ;
+    function traverse (node) {
+        if (node.parent.type === 'CallExpression') {
+            var val = modules[varNames[node.name]];
+            if (typeof val !== 'function') {
+                output.emit('error', new Error(
+                    'tried to statically call ' + inspect(val)
+                    + ' as a function'
+                ));
+            }
+            else {
+                //console.log('VALUE!', node.parent.arguments);
+                var xvars = copy(vars);
+                xvars[node.name] = val;
+                var res = evaluate(node.parent, xvars);
+                if (res !== undefined) node.parent.update(res);
+            }
+        }
+        //varNames[node.name].parent
     }
 };
-
-function isRFS (node) {
-    return node.type === 'Identifier' && node.name === 'readFileSync';
-}
-
-function isRF (node) {
-    return node.type === 'Identifier' && node.name === 'readFile';
-}
 
 function isRequire (node) {
     var c = node.callee;
@@ -140,6 +105,8 @@ function isRequire (node) {
         && c.name === 'require'
     ;
 }
+
+function has (obj, key) { return {}.hasOwnProperty.call(obj, key) }
 
 function errorWithFile (file, err) {
     var e = new Error(err.message + '\n  while running brfs on ' + file);

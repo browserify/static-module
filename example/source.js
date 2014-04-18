@@ -1,2 +1,2 @@
-var beep = require('beep');
-console.log(beep('boop'));
+var b = require('beep');
+console.log(b(5));
