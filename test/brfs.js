@@ -7,16 +7,15 @@ var path = require('path');
 var vm = require('vm');
 
 test('readFileSync', function (t) {
+    t.plan(1);
     var sm = staticModule({
         fs: {
             readFileSync: function (file) {
-console.log('READ FILE SYNC', file);
                 return fs.createReadStream(file).pipe(quote());
             }
         }
     }, { vars: { __dirname: path.join(__dirname, 'brfs') } });
     readStream('source.js').pipe(sm).pipe(concat(function (body) {
-console.log(''+body+'\n*******');
         vm.runInNewContext(body.toString('utf8'), {
             console: { log: log }
         });

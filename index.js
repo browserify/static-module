@@ -17,7 +17,7 @@ module.exports = function (modules, opts) {
     if (!opts) opts = {};
     var vars = opts.vars || {};
     var pending = 0;
-    var streams = [];
+    var updates = [];
     
     var output = through();
     return duplexer(concat(function (body) {
@@ -30,22 +30,22 @@ module.exports = function (modules, opts) {
         var offset = 0, pos = 0;
         src = String(src);
         
-        /*
         (function next () {
-            var s = streams.shift();
-            var x = s.range[0] - offset;
-            var y = s.range[1] - offset;
-            output.push(s.slice(x, y));
+            if (updates.length === 0) return done();
             
-            offset += s.range[1] - s.range[0];
-            pos = s.range[1];
-            
-            if () {
+            var s = updates.shift();
+            if (!s.stream) {
+                offset += s.range[1] - s.range[0];
+                return next();
             }
+            
+            output.push(src.slice(pos, s.range[0] - offset));
+            pos = s.range[0] - offset;
+            offset += s.range[1] - s.range[0];
+            
+            s.stream.on('end', next);
+            s.stream.pipe(output, { end: false });
         })();
-        */
-console.log(streams);
-        done();
         
         function done () {
             output.push(src.slice(pos));
@@ -66,9 +66,11 @@ console.log(streams);
                 var decs = node.parent.parent.declarations;
                 if (decs.length === 1) {
                     node.parent.parent.update('');
+                    updates.push({ range: node.parent.parent.range });
                 }
                 else {
                     node.parent.update('');
+                    updates.push({ range: node.parent.range });
                 }
             }
             if (isRequire(node) && has(modules, node.arguments[0].value)
@@ -76,6 +78,7 @@ console.log(streams);
             && node.parent.left.type === 'Identifier') {
                 varNames[node.parent.left.name] = node.arguments[0].value;
                 node.update('{}');
+                updates.push({ range: [ node.range[0], node.range[1] - 2 ] });
             }
             
             if (node.type === 'Identifier' && varNames[node.name]) {
@@ -117,11 +120,11 @@ console.log(streams);
                 xvars[node.name] = val;
                 var res = evaluate(node.parent.parent, xvars);
                 if (isStream(res)) {
-                    streams.push({
-                        range: node.range,
+                    updates.push({
+                        range: node.parent.parent.range,
                         stream: wrapStream(res)
                     });
-                    node.update('');
+                    node.parent.parent.update('');
                 }
                 else if (res !== undefined) node.parent.update(res);
             }
