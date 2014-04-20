@@ -2,6 +2,8 @@ var fs = require('fs');
 var path = require('path');
 
 var through = require('through2');
+var Readable = require('readable-stream').Readable;
+
 var concat = require('concat-stream');
 var duplexer = require('duplexer2');
 var falafel = require('falafel');
@@ -15,22 +17,40 @@ module.exports = function (modules, opts) {
     if (!opts) opts = {};
     var vars = opts.vars || {};
     var pending = 0;
+    var streams = [];
     
     var output = through();
     return duplexer(concat(function (body) {
-        /*
-        try { var src = parse() }
-        catch (err) {
-            output.emit('error', new Error(err.message + ' (' + file + ')'));
-        }
-        */
-        var src = parse(body.toString('utf8'));
+        try { var src = parse(body.toString('utf8')) }
+        catch (err) { return error(err) }
         if (pending === 0) finish(src);
     }), output);
     
     function finish (src) {
-        output.push(String(src));
-        output.push(null);
+        var offset = 0, pos = 0;
+        src = String(src);
+        
+        /*
+        (function next () {
+            var s = streams.shift();
+            var x = s.range[0] - offset;
+            var y = s.range[1] - offset;
+            output.push(s.slice(x, y));
+            
+            offset += s.range[1] - s.range[0];
+            pos = s.range[1];
+            
+            if () {
+            }
+        })();
+        */
+console.log(streams);
+        done();
+        
+        function done () {
+            output.push(src.slice(pos));
+            output.push(null);
+        }
     }
     
     function error (msg) {
@@ -95,8 +115,15 @@ module.exports = function (modules, opts) {
             if (typeof val[id] === 'function') {
                 var xvars = copy(vars);
                 xvars[node.name] = val;
-                var res = evaluate(node.parent, xvars);
-                if (res !== undefined) node.parent.update(res);
+                var res = evaluate(node.parent.parent, xvars);
+                if (isStream(res)) {
+                    streams.push({
+                        range: node.range,
+                        stream: wrapStream(res)
+                    });
+                    node.update('');
+                }
+                else if (res !== undefined) node.parent.update(res);
             }
             else {
                 node.update(inspect(val));
@@ -121,4 +148,13 @@ function isRequire (node) {
 
 function has (obj, key) {
     return {}.hasOwnProperty.call(obj, key);
+}
+
+function isStream (s) {
+    return s && typeof s === 'object' && typeof s.pipe === 'function';
+}
+
+function wrapStream (s) {
+    if (typeof s.read === 'function') return s
+    else return (new Readable).wrap(s)
 }
