@@ -9,16 +9,7 @@ var path = require('path');
 test('fs.readFile', function (t) {
     t.plan(2);
     var sm = staticModule({
-        fs: {
-            readFile: function (file, cb) {
-                var stream = through(write, end);
-                stream.push('process.nextTick(function(){(' + cb + ')(null,');
-                return fs.createReadStream(file).pipe(quote()).pipe(stream);
-                
-                function write (buf, enc, next) { this.push(buf); next() }
-                function end (next) { this.push(')})'); this.push(null); next() }
-            }
-        }
+        fs: { readFile: readFile }
     }, { vars: { __dirname: __dirname + '/fs' } });
     readStream('readfile.js').pipe(sm).pipe(concat(function (body) {
         t.equal(body.toString('utf8'),
@@ -31,6 +22,34 @@ test('fs.readFile', function (t) {
     }));
 });
 
+test('fs.readFileSync', function (t) {
+    t.plan(2);
+    var sm = staticModule({
+        fs: { readFileSync: readFileSync }
+    }, { vars: { __dirname: __dirname + '/fs' } });
+    readStream('html.js').pipe(sm).pipe(concat(function (body) {
+        t.equal(body.toString('utf8'),
+            'var html = "EXTERMINATE\\n";\n'
+            + 'console.log(html);\n'
+        );
+        Function(['console'],body)({ log: log });
+        function log (msg) { t.equal(msg, 'EXTERMINATE\n') }
+    }));
+});
+
 function readStream (file) {
     return fs.createReadStream(path.join(__dirname, 'fs', file));
+}
+
+function readFile (file, cb) {
+    var stream = through(write, end);
+    stream.push('process.nextTick(function(){(' + cb + ')(null,');
+    return fs.createReadStream(file).pipe(quote()).pipe(stream);
+    
+    function write (buf, enc, next) { this.push(buf); next() }
+    function end (next) { this.push(')})'); this.push(null); next() }
+}
+
+function readFileSync (file, opts) {
+    return fs.createReadStream(file).pipe(quote);
 }
