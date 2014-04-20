@@ -115,12 +115,18 @@ module.exports = function (modules, opts) {
             }
             
             var cur = node.parent.parent;
+            
             if (cur.type === 'MemberExpression') {
                 cur = cur.parent;
                 if (cur.type !== 'CallExpression'
                 && cur.parent.type === 'CallExpression') {
                     cur = cur.parent;
                 }
+            }
+            if (node.parent.type === 'MemberExpression'
+            && (cur.type !== 'CallExpression'
+            && cur.type !== 'MemberExpression')) {
+                cur = node.parent;
             }
             
             var xvars = copy(vars);
