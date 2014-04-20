@@ -16,10 +16,10 @@ test('nested object', function (t) {
     });
     readStream('source.js').pipe(sm).pipe(concat(function (body) {
         Function(['console'],body)({ log: log });
-        t.equal(body.toString('utf8'), [
-            'console.log(4 * 3);',
-            'console.log(555);'
-        ].join('\n'));
+        t.equal(
+            body.toString('utf8'),
+            '\nconsole.log(4 * 3);\nconsole.log(555);\n'
+        );
         function log (msg) { t.equal(msg, expected.shift()) }
     }));
 });

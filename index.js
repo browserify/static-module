@@ -116,6 +116,7 @@ module.exports = function (modules, opts) {
             
             var cur = node.parent.parent;
             if (cur.type === 'MemberExpression') cur = cur.parent;
+            if (cur.parent.type === 'CallExpression') cur = cur.parent;
             
             var xvars = copy(vars);
             xvars[node.name] = val;
