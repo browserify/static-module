@@ -48,6 +48,28 @@ test('readFileSync attribute', function (t) {
     }));
 });
 
+test('readFileSync attribute with multiple vars', function (t) {
+    t.plan(2);
+    var sm = staticModule({
+        fs: {
+            readFileSync: function (file) {
+                return fs.createReadStream(file).pipe(quote());
+            }
+        }
+    }, { vars: { __dirname: path.join(__dirname, 'brfs') } });
+    readStream('attribute_vars.js').pipe(sm).pipe(concat(function (body) {
+        t.equal(body.toString('utf8'),
+            'var x = 5, y = 2;'
+            + '\nvar src = "beep boop\\n";'
+            + '\nconsole.log(src);\n'
+        );
+        vm.runInNewContext(body.toString('utf8'), {
+            console: { log: log }
+        });
+        function log (msg) { t.equal(msg, 'beep boop\n') }
+    }));
+});
+
 function readStream (file) {
     return fs.createReadStream(path.join(__dirname, 'brfs', file));
 }
