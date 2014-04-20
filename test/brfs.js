@@ -7,7 +7,7 @@ var path = require('path');
 var vm = require('vm');
 
 test('readFileSync', function (t) {
-    t.plan(1);
+    t.plan(2);
     var sm = staticModule({
         fs: {
             readFileSync: function (file) {
@@ -16,6 +16,10 @@ test('readFileSync', function (t) {
         }
     }, { vars: { __dirname: path.join(__dirname, 'brfs') } });
     readStream('source.js').pipe(sm).pipe(concat(function (body) {
+        t.equal(body.toString('utf8'),
+            '\nvar src = "beep boop\\n";'
+            + '\nconsole.log(src);\n'
+        );
         vm.runInNewContext(body.toString('utf8'), {
             console: { log: log }
         });
