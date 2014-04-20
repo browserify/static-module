@@ -71,11 +71,17 @@ module.exports = function (modules, opts) {
             && node.parent.id.type === 'Identifier') {
                 varNames[node.parent.id.name] = node.arguments[0].value;
                 var decs = node.parent.parent.declarations;
-                if (decs.length === 1) {
+                var ix = decs.indexOf(node.parent);
+                if (ix >= 0) decs.splice(ix, 1);
+                
+                if (decs.length === 0) {
                     pushUpdate(node.parent.parent, '');
                 }
                 else {
-                    pushUpdate(node.parent, '');
+                    pushUpdate(
+                        node.parent.parent,
+                        unparse(node.parent.parent)
+                    );
                 }
             }
             else if (isRequire(node) && has(modules, node.arguments[0].value)
