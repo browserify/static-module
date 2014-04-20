@@ -126,10 +126,12 @@ module.exports = function (modules, opts) {
                     });
                     node.parent.parent.update('');
                 }
-                else if (res !== undefined) node.parent.update(res);
+                else if (res !== undefined) {
+                    node.parent.parent.update(res);
+                }
             }
             else {
-                node.update(inspect(val));
+                node.parent.update(inspect(val[id]));
             }
         }
         else {
