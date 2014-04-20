@@ -28,8 +28,9 @@ module.exports = function (modules, opts) {
     
     var output = through();
     return duplexer(concat(function (body) {
-        try { var src = parse(body.toString('utf8')) }
-        catch (err) { return error(err) }
+        var src = falafel(body.toString('utf8'), walk);
+        //try { var src = falafel(body.toString('utf8'), walk) }
+        //catch (err) { return error(err) }
         if (pending === 0) finish(src);
     }), output);
     
@@ -64,82 +65,79 @@ module.exports = function (modules, opts) {
         output.emit('error', new Error(msg));
     }
     
-    function parse (body) {
-        var output = falafel(body, function (node) {
-            var isreq = false, reqid;
-            if (isRequire(node)) {
-                reqid = node.arguments[0].value;
-                isreq = has(modules, reqid);
-            }
+    function walk (node) {
+        var isreq = false, reqid;
+        if (isRequire(node)) {
+            reqid = node.arguments[0].value;
+            isreq = has(modules, reqid);
+        }
+        
+        if (isreq && node.parent.type === 'VariableDeclarator'
+        && node.parent.id.type === 'Identifier') {
+            varNames[node.parent.id.name] = reqid;
+            var decs = node.parent.parent.declarations;
+            var ix = decs.indexOf(node.parent);
+            if (ix >= 0) decs.splice(ix, 1);
             
-            if (isreq && node.parent.type === 'VariableDeclarator'
-            && node.parent.id.type === 'Identifier') {
-                varNames[node.parent.id.name] = reqid;
-                var decs = node.parent.parent.declarations;
-                var ix = decs.indexOf(node.parent);
-                if (ix >= 0) decs.splice(ix, 1);
-                
-                if (decs.length === 0) {
-                    pushUpdate(node.parent.parent, '');
-                }
-                else {
-                    pushUpdate(
-                        node.parent.parent,
-                        unparse(node.parent.parent)
-                    );
-                }
+            if (decs.length === 0) {
+                pushUpdate(node.parent.parent, '');
             }
-            else if (isreq && node.parent.type === 'AssignmentExpression'
-            && node.parent.left.type === 'Identifier') {
-                varNames[node.parent.left.name] = reqid;
-                var cur = node.parent.parent;
-                if (cur.type === 'SequenceExpression') {
-                    var ex = cur.expressions;
-                    var ix = ex.indexOf(node.parent);
-                    if (ix >= 0) ex.splice(ix, 1);
-                    pushUpdate(
-                        node.parent.parent,
-                        unparse(node.parent.parent)
-                    );
-                }
-                else pushUpdate(cur, '');
+            else {
+                pushUpdate(
+                    node.parent.parent,
+                    unparse(node.parent.parent)
+                );
             }
-            else if (isreq && node.parent.type === 'MemberExpression'
-            && node.parent.property.type === 'Identifier'
-            && node.parent.parent.type === 'VariableDeclarator'
-            && node.parent.parent.id.type === 'Identifier') {
-                varNames[node.parent.parent.id.name] = [
-                    reqid, node.parent.property.name
-                ];
-                var decs = node.parent.parent.parent.declarations;
-                var ix = decs.indexOf(node.parent.parent);
-                if (ix >= 0) decs.splice(ix, 1);
-                
-                if (decs.length === 0) {
-                    pushUpdate(node.parent.parent.parent, '');
-                }
-                else {
-                    pushUpdate(
-                        node.parent.parent.parent,
-                        unparse(node.parent.parent.parent)
-                    );
-                }
+        }
+        else if (isreq && node.parent.type === 'AssignmentExpression'
+        && node.parent.left.type === 'Identifier') {
+            varNames[node.parent.left.name] = reqid;
+            var cur = node.parent.parent;
+            if (cur.type === 'SequenceExpression') {
+                var ex = cur.expressions;
+                var ix = ex.indexOf(node.parent);
+                if (ix >= 0) ex.splice(ix, 1);
+                pushUpdate(
+                    node.parent.parent,
+                    unparse(node.parent.parent)
+                );
             }
-            else if (isreq && node.parent.type === 'MemberExpression') {
-                console.log(unparse(node.parent));
-                console.log('REQUIRE!!!');
-                traverse(node.parent, modules[reqid]);
-            }
+            else pushUpdate(cur, '');
+        }
+        else if (isreq && node.parent.type === 'MemberExpression'
+        && node.parent.property.type === 'Identifier'
+        && node.parent.parent.type === 'VariableDeclarator'
+        && node.parent.parent.id.type === 'Identifier') {
+            varNames[node.parent.parent.id.name] = [
+                reqid, node.parent.property.name
+            ];
+            var decs = node.parent.parent.parent.declarations;
+            var ix = decs.indexOf(node.parent.parent);
+            if (ix >= 0) decs.splice(ix, 1);
             
-            if (node.type === 'Identifier' && varNames[node.name]) {
-                var vn = varNames[node.name];
-                if (Array.isArray(vn)) {
-                    traverse(node, modules[vn[0]][vn[1]]);
-                }
-                else traverse(node, modules[vn]);
+            if (decs.length === 0) {
+                pushUpdate(node.parent.parent.parent, '');
             }
-        });
-        return output;
+            else {
+                pushUpdate(
+                    node.parent.parent.parent,
+                    unparse(node.parent.parent.parent)
+                );
+            }
+        }
+        else if (isreq && node.parent.type === 'MemberExpression') {
+            console.log(unparse(node.parent));
+            console.log('REQUIRE!!!');
+            traverse(node.parent, modules[reqid]);
+        }
+        
+        if (node.type === 'Identifier' && varNames[node.name]) {
+            var vn = varNames[node.name];
+            if (Array.isArray(vn)) {
+                traverse(node, modules[vn[0]][vn[1]]);
+            }
+            else traverse(node, modules[vn]);
+        }
     }
     
     function traverse (node, val) {
@@ -207,7 +205,7 @@ module.exports = function (modules, opts) {
             ));
         }
     }
-};
+}
 
 function isRequire (node) {
     var c = node.callee;
