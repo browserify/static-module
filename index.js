@@ -66,10 +66,15 @@ module.exports = function (modules, opts) {
     
     function parse (body) {
         var output = falafel(body, function (node) {
-            if (isRequire(node) && has(modules, node.arguments[0].value)
-            && node.parent.type === 'VariableDeclarator'
+            var isreq = false, reqid;
+            if (isRequire(node)) {
+                reqid = node.arguments[0].value;
+                isreq = has(modules, reqid);
+            }
+            
+            if (isreq && node.parent.type === 'VariableDeclarator'
             && node.parent.id.type === 'Identifier') {
-                varNames[node.parent.id.name] = node.arguments[0].value;
+                varNames[node.parent.id.name] = reqid;
                 var decs = node.parent.parent.declarations;
                 var ix = decs.indexOf(node.parent);
                 if (ix >= 0) decs.splice(ix, 1);
@@ -84,10 +89,9 @@ module.exports = function (modules, opts) {
                     );
                 }
             }
-            else if (isRequire(node) && has(modules, node.arguments[0].value)
-            && node.parent.type === 'AssignmentExpression'
+            else if (isreq && node.parent.type === 'AssignmentExpression'
             && node.parent.left.type === 'Identifier') {
-                varNames[node.parent.left.name] = node.arguments[0].value;
+                varNames[node.parent.left.name] = reqid;
                 var cur = node.parent.parent;
                 if (cur.type === 'SequenceExpression') {
                     var ex = cur.expressions;
@@ -100,13 +104,12 @@ module.exports = function (modules, opts) {
                 }
                 else pushUpdate(cur, '');
             }
-            else if (isRequire(node) && has(modules, node.arguments[0].value)
-            && node.parent.type === 'MemberExpression'
+            else if (isreq && node.parent.type === 'MemberExpression'
             && node.parent.property.type === 'Identifier'
             && node.parent.parent.type === 'VariableDeclarator'
             && node.parent.parent.id.type === 'Identifier') {
                 varNames[node.parent.parent.id.name] = [
-                    node.arguments[0].value, node.parent.property.name
+                    reqid, node.parent.property.name
                 ];
                 var decs = node.parent.parent.parent.declarations;
                 var ix = decs.indexOf(node.parent.parent);
@@ -122,24 +125,24 @@ module.exports = function (modules, opts) {
                     );
                 }
             }
+            else if (isreq && node.parent.type === 'MemberExpression') {
+                console.log(unparse(node.parent));
+                console.log('REQUIRE!!!');
+                traverse(node.parent, modules[reqid]);
+            }
             
             if (node.type === 'Identifier' && varNames[node.name]) {
-                traverse(node);
+                var vn = varNames[node.name];
+                if (Array.isArray(vn)) {
+                    traverse(node, modules[vn[0]][vn[1]]);
+                }
+                else traverse(node, modules[vn]);
             }
         });
         return output;
     }
     
-    function traverse (node) {
-        var vn = varNames[node.name];
-        var val;
-        if (Array.isArray(vn)) {
-            val = modules[vn[0]][vn[1]];
-        }
-        else {
-            val = modules[vn];
-        }
-        
+    function traverse (node, val) {
         if (node.parent.type === 'CallExpression') {
             if (typeof val !== 'function') {
                 return error(
