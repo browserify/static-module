@@ -88,7 +88,17 @@ module.exports = function (modules, opts) {
             && node.parent.type === 'AssignmentExpression'
             && node.parent.left.type === 'Identifier') {
                 varNames[node.parent.left.name] = node.arguments[0].value;
-                pushUpdate(node.parent.parent, '');
+                var cur = node.parent.parent;
+                if (cur.type === 'SequenceExpression') {
+                    var ex = cur.expressions;
+                    var ix = ex.indexOf(node.parent);
+                    if (ix >= 0) ex.splice(ix, 1);
+                    pushUpdate(
+                        node.parent.parent,
+                        unparse(node.parent.parent)
+                    );
+                }
+                else pushUpdate(cur, '');
             }
             else if (isRequire(node) && has(modules, node.arguments[0].value)
             && node.parent.type === 'MemberExpression'

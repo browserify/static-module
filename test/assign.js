@@ -30,7 +30,7 @@ test('assign comma', function (t) {
     });
     readStream('comma.js').pipe(sm).pipe(concat(function (body) {
         t.equal(body.toString('utf8'),
-            'x=5;\n'
+            'x = 5;\n'
             + 'console.log(4 * 3);\n'
             + 'console.log(555);\n'
         );
