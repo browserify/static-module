@@ -5,14 +5,15 @@ var fs = require('fs');
 var path = require('path');
 
 test('object', function (t) {
-    t.plan(1);
+    t.plan(2);
     
+    var expected = [ 12, 555 ];
     var sm = staticModule({
-        beep: { x: 5, f: function (n) { return n * 111 } }
+        beep: { x: 4, f: function (n) { return n * 111 } }
     });
     readStream('source.js').pipe(sm).pipe(concat(function (body) {
         Function(['console'],body)({ log: log });
-        function log (msg) { t.equal(msg, 555) }
+        function log (msg) { t.equal(msg, expected.shift()) }
     }));
 });
 
