@@ -1,5 +1,4 @@
 var staticModule = require('../');
-var through = require('through2');
 var quote = require('quote-stream');
 var fs = require('fs');
 
