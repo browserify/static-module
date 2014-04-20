@@ -19,6 +19,13 @@ module.exports = function (modules, opts) {
     var pending = 0;
     var updates = [];
     
+    function pushUpdate (node, s) {
+        var rep = String(s);
+        var prev = node.range[1] - node.range[0];
+        updates.push({ offset: prev - rep.length });
+        node.update(rep);
+    }
+    
     var output = through();
     return duplexer(concat(function (body) {
         try { var src = parse(body.toString('utf8')) }
@@ -35,7 +42,7 @@ module.exports = function (modules, opts) {
             
             var s = updates.shift();
             if (!s.stream) {
-                offset += s.range[1] - s.range[0];
+                offset += s.offset;
                 return next();
             }
             
@@ -65,20 +72,17 @@ module.exports = function (modules, opts) {
                 varNames[node.parent.id.name] = node.arguments[0].value;
                 var decs = node.parent.parent.declarations;
                 if (decs.length === 1) {
-                    node.parent.parent.update('');
-                    updates.push({ range: node.parent.parent.range });
+                    pushUpdate(node.parent.parent, '');
                 }
                 else {
-                    node.parent.update('');
-                    updates.push({ range: node.parent.range });
+                    pushUpdate(node.parent, '');
                 }
             }
             if (isRequire(node) && has(modules, node.arguments[0].value)
             && node.parent.type === 'AssignmentExpression'
             && node.parent.left.type === 'Identifier') {
                 varNames[node.parent.left.name] = node.arguments[0].value;
-                node.update('{}');
-                updates.push({ range: [ node.range[0], node.range[1] - 2 ] });
+                pushUpdate(node, '{}');
             }
             
             if (node.type === 'Identifier' && varNames[node.name]) {
@@ -100,7 +104,7 @@ module.exports = function (modules, opts) {
             var xvars = copy(vars);
             xvars[node.name] = val;
             var res = evaluate(node.parent, xvars);
-            if (res !== undefined) node.parent.update(res);
+            if (res !== undefined) pushUpdate(node.parent, res);
         }
         else if (node.parent.type === 'MemberExpression') {
             if (node.parent.property.type !== 'Identifier') {
@@ -127,11 +131,11 @@ module.exports = function (modules, opts) {
                     node.parent.parent.update('');
                 }
                 else if (res !== undefined) {
-                    node.parent.parent.update(res);
+                    pushUpdate(node.parent.parent, res);
                 }
             }
             else {
-                node.parent.update(inspect(val[id]));
+                pushUpdate(node.parent, inspect(val[id]));
             }
         }
         else {
