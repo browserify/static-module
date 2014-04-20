@@ -119,10 +119,6 @@ function isRequire (node) {
     ;
 }
 
-function has (obj, key) { return {}.hasOwnProperty.call(obj, key) }
-
-function errorWithFile (file, err) {
-    var e = new Error(err.message + '\n  while running brfs on ' + file);
-    e.file = file;
-    return e;
+function has (obj, key) {
+    return {}.hasOwnProperty.call(obj, key);
 }
