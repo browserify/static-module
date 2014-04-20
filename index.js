@@ -88,7 +88,7 @@ module.exports = function (modules, opts) {
             && node.parent.type === 'AssignmentExpression'
             && node.parent.left.type === 'Identifier') {
                 varNames[node.parent.left.name] = node.arguments[0].value;
-                pushUpdate(node, '{}');
+                pushUpdate(node.parent.parent, '');
             }
             else if (isRequire(node) && has(modules, node.arguments[0].value)
             && node.parent.type === 'MemberExpression'
