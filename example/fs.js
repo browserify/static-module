@@ -9,12 +9,12 @@ var sm = staticModule({
             return fs.createReadStream(file).pipe(quote());
         },
         readFile: function (file, cb) {
-            var stream = through(null, function () {
-                this.push(')})');
-                this.push(null);
-            });
-            stream.push('process.nextTick(function () {' + cb + '(null,');
+            var stream = through(write, end);
+            stream.push('process.nextTick(function(){(' + cb + ')(null,');
             return fs.createReadStream(file).pipe(quote()).pipe(stream);
+            
+            function write (buf, enc, next) { this.push(buf); next() }
+            function end (next) { this.push(')})'); this.push(null); next() }
         }
     }
 }, { vars: { __dirname: __dirname + '/fs' } });
