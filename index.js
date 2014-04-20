@@ -78,11 +78,27 @@ module.exports = function (modules, opts) {
                     pushUpdate(node.parent, '');
                 }
             }
-            if (isRequire(node) && has(modules, node.arguments[0].value)
+            else if (isRequire(node) && has(modules, node.arguments[0].value)
             && node.parent.type === 'AssignmentExpression'
             && node.parent.left.type === 'Identifier') {
                 varNames[node.parent.left.name] = node.arguments[0].value;
                 pushUpdate(node, '{}');
+            }
+            else if (isRequire(node) && has(modules, node.arguments[0].value)
+            && node.parent.type === 'MemberExpression'
+            && node.parent.property.type === 'Identifier'
+            && node.parent.parent.type === 'VariableDeclarator'
+            && node.parent.parent.id.type === 'Identifier') {
+                varNames[node.parent.parent.id.name] = [
+                    node.arguments[0].value, node.parent.property.name
+                ];
+                var decs = node.parent.parent.parent.declarations;
+                if (decs.length === 1) {
+                    pushUpdate(node.parent.parent.parent, '');
+                }
+                else {
+                    pushUpdate(node.parent.parent, '');
+                }
             }
             
             if (node.type === 'Identifier' && varNames[node.name]) {
@@ -93,7 +109,15 @@ module.exports = function (modules, opts) {
     }
     
     function traverse (node) {
-        var val = modules[varNames[node.name]];
+        var vn = varNames[node.name];
+        var val;
+        if (Array.isArray(vn)) {
+            val = modules[vn[0]][vn[1]];
+        }
+        else {
+            val = modules[vn];
+        }
+        
         if (node.parent.type === 'CallExpression') {
             if (typeof val !== 'function') {
                 return error(
@@ -104,7 +128,15 @@ module.exports = function (modules, opts) {
             var xvars = copy(vars);
             xvars[node.name] = val;
             var res = evaluate(node.parent, xvars);
-            if (res !== undefined) pushUpdate(node.parent, res);
+            
+            if (isStream(res)) {
+                updates.push({
+                    range: node.parent.range,
+                    stream: wrapStream(res)
+                });
+                node.parent.update('');
+            }
+            else if (res !== undefined) pushUpdate(node.parent, res);
         }
         else if (node.parent.type === 'MemberExpression') {
             if (node.parent.property.type !== 'Identifier') {
