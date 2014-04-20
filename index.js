@@ -113,29 +113,23 @@ module.exports = function (modules, opts) {
                     + node.parent.source()
                 );
             }
-            var id = node.parent.property.name;
-            if (!has(val, id)) {
-                return error(
-                    inspect(val) + ' does not have static property ' + id
-                );
+            
+            var cur = node.parent.parent;
+            if (cur.type === 'MemberExpression') cur = cur.parent;
+            
+            var xvars = copy(vars);
+            xvars[node.name] = val;
+            
+            var res = evaluate(cur, xvars);
+            if (isStream(res)) {
+                updates.push({
+                    range: cur.range,
+                    stream: wrapStream(res)
+                });
+                cur.update('');
             }
-            if (typeof val[id] === 'function') {
-                var xvars = copy(vars);
-                xvars[node.name] = val;
-                var res = evaluate(node.parent.parent, xvars);
-                if (isStream(res)) {
-                    updates.push({
-                        range: node.parent.parent.range,
-                        stream: wrapStream(res)
-                    });
-                    node.parent.parent.update('');
-                }
-                else if (res !== undefined) {
-                    pushUpdate(node.parent.parent, res);
-                }
-            }
-            else {
-                pushUpdate(node.parent, inspect(val[id]));
+            else if (res !== undefined) {
+                pushUpdate(cur, res);
             }
         }
         else {
