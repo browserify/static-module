@@ -5,7 +5,7 @@ var fs = require('fs');
 var path = require('path');
 
 test('nested object', function (t) {
-    t.plan(2);
+    t.plan(3);
     
     var expected = [ 12, 555 ];
     var sm = staticModule({
@@ -16,6 +16,10 @@ test('nested object', function (t) {
     });
     readStream('source.js').pipe(sm).pipe(concat(function (body) {
         Function(['console'],body)({ log: log });
+        t.equal(body.toString('utf8'), [
+            'console.log(4 * 3);',
+            'console.log(555);'
+        ].join('\n'));
         function log (msg) { t.equal(msg, expected.shift()) }
     }));
 });
