@@ -28,25 +28,13 @@ module.exports = function (modules, opts) {
         if (pending === 0) finish(src);
     }), output);
     
-    function containsUndefinedVariable (node) {
-        if (node.type === 'Identifier') {
-            if (vars.indexOf(node.name) === -1) {
-                return true;
-            }
-        }
-        else if (node.type === 'BinaryExpression') {
-            return containsUndefinedVariable(node.left)
-                || containsUndefinedVariable(node.right)
-            ;
-        }
-        else {
-            return false;
-        }
-    };
-    
     function finish (src) {
         output.push(String(src));
         output.push(null);
+    }
+    
+    function error (msg) {
+        output.emit('error', new Error(msg));
     }
     
     function parse (body) {
@@ -78,23 +66,47 @@ module.exports = function (modules, opts) {
     }
     
     function traverse (node) {
+        var val = modules[varNames[node.name]];
         if (node.parent.type === 'CallExpression') {
-            var val = modules[varNames[node.name]];
             if (typeof val !== 'function') {
-                output.emit('error', new Error(
+                return error(
                     'tried to statically call ' + inspect(val)
                     + ' as a function'
-                ));
+                );
             }
-            else {
-                //console.log('VALUE!', node.parent.arguments);
+            var xvars = copy(vars);
+            xvars[node.name] = val;
+            var res = evaluate(node.parent, xvars);
+            if (res !== undefined) node.parent.update(res);
+        }
+        else if (node.parent.type === 'MemberExpression') {
+            if (node.parent.property.type !== 'Identifier') {
+                return error(
+                    'dynamic property in member expression: '
+                    + node.parent.source()
+                );
+            }
+            var id = node.parent.property.name;
+            if (!has(val, id)) {
+                return error(
+                    inspect(val) + ' does not have static property ' + id
+                );
+            }
+            if (typeof val[id] === 'function') {
                 var xvars = copy(vars);
                 xvars[node.name] = val;
                 var res = evaluate(node.parent, xvars);
                 if (res !== undefined) node.parent.update(res);
             }
+            else {
+                node.update(inspect(val));
+            }
         }
-        //varNames[node.name].parent
+        else {
+            output.emit('error', new Error(
+                'unsupported type for static module: ' + node.parent.type
+            ));
+        }
     }
 };
 
