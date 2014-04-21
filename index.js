@@ -28,9 +28,8 @@ module.exports = function (modules, opts) {
     
     var output = through();
     return duplexer(concat(function (body) {
-        var src = falafel(body.toString('utf8'), walk);
-        //try { var src = falafel(body.toString('utf8'), walk) }
-        //catch (err) { return error(err) }
+        try { var src = falafel(body.toString('utf8'), walk) }
+        catch (err) { return error(err) }
         if (pending === 0) finish(src);
     }), output);
     
