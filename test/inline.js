@@ -31,7 +31,7 @@ test('inline object expression', function (t) {
     var sm = staticModule({
         beep: { f: function (n) { return n * 111 } }
     });
-    readStream('obj_call.js').pipe(sm).pipe(concat(function (body) {
+    readStream('obj_expr.js').pipe(sm).pipe(concat(function (body) {
         Function(['console'],body)({ log: log });
         function log (msg) { t.equal(msg, 1110) }
     }));
@@ -64,7 +64,7 @@ test('inline function expression', function (t) {
     var sm = staticModule({
         beep: function (n) { return n * 111 }
     });
-    readStream('fn_call.js').pipe(sm).pipe(concat(function (body) {
+    readStream('fn_expr.js').pipe(sm).pipe(concat(function (body) {
         Function(['console'],body)({ log: log });
         function log (msg) { t.equal(msg, 1665) }
     }));
