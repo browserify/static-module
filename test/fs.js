@@ -51,5 +51,5 @@ function readFile (file, cb) {
 }
 
 function readFileSync (file, opts) {
-    return fs.createReadStream(file).pipe(quote);
+    return fs.createReadStream(file).pipe(quote());
 }
