@@ -127,7 +127,6 @@ module.exports = function (modules, opts) {
         }
         else if (isreq && node.parent.type === 'MemberExpression'
         && node.parent.property.type === 'Identifier') {
-            //console.log('REQUIRE!!!');
             if (node.parent.parent.type === 'CallExpression') {
                 pushUpdate(node.parent.parent, '');
             }
@@ -139,6 +138,17 @@ module.exports = function (modules, opts) {
             cur.callee = copy(node.parent.property);
             cur.callee.parent = cur;
             traverse(cur.callee, modules[reqid][name]);
+        }
+        else if (isreq && node.parent.type === 'CallExpression') {
+            var cur = copy(node.parent);
+            var iname = Math.pow(16,8) * Math.random();
+            cur.callee = {
+                type: 'Identifier',
+                name: '_' + Math.floor(iname).toString(16),
+                parent: cur
+            };
+            pushUpdate(node.parent, '');
+            traverse(cur.callee, modules[reqid]);
         }
         
         if (node.type === 'Identifier' && varNames[node.name]) {
