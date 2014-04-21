@@ -1,6 +1,6 @@
 {
   "name": "static-module",
-  "version": "0.0.0",
+  "version": "0.0.1",
   "description": "convert module usage to inline expressions",
   "main": "index.js",
   "dependencies": {
