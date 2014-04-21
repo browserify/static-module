@@ -10,7 +10,6 @@ test('inline object', function (t) {
         beep: { f: function (n) { return n * 111 } }
     });
     readStream('obj.js').pipe(sm).pipe(concat(function (body) {
-console.log(body + ''); 
         Function(['console'],body)({ log: log });
         function log (msg) { t.equal(msg, 555) }
     }));

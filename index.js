@@ -125,10 +125,20 @@ module.exports = function (modules, opts) {
                 );
             }
         }
-        else if (isreq && node.parent.type === 'MemberExpression') {
-            console.log(unparse(node.parent));
-            console.log('REQUIRE!!!');
-            traverse(node.parent, modules[reqid]);
+        else if (isreq && node.parent.type === 'MemberExpression'
+        && node.parent.property.type === 'Identifier') {
+            //console.log('REQUIRE!!!');
+            if (node.parent.parent.type === 'CallExpression') {
+                pushUpdate(node.parent.parent, '');
+            }
+            else {
+                pushUpdate(node.parent, '');
+            }
+            var name = node.parent.property.name;
+            var cur = copy(node.parent.parent);
+            cur.callee = copy(node.parent.property);
+            cur.callee.parent = cur;
+            traverse(cur.callee, modules[reqid][name]);
         }
         
         if (node.type === 'Identifier' && varNames[node.name]) {
