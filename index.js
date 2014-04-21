@@ -127,12 +127,6 @@ module.exports = function (modules, opts) {
         }
         else if (isreq && node.parent.type === 'MemberExpression'
         && node.parent.property.type === 'Identifier') {
-            if (node.parent.parent.type === 'CallExpression') {
-                pushUpdate(node.parent.parent, '');
-            }
-            else {
-                pushUpdate(node.parent, '');
-            }
             var name = node.parent.property.name;
             var cur = copy(node.parent.parent);
             cur.callee = copy(node.parent.property);
@@ -177,7 +171,7 @@ module.exports = function (modules, opts) {
                     range: node.parent.range,
                     stream: wrapStream(res)
                 });
-                node.parent.update('');
+                pushUpdate(node.parent, '');
             }
             else if (res !== undefined) pushUpdate(node.parent, res);
         }
