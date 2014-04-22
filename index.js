@@ -140,7 +140,6 @@ module.exports = function (modules, opts) {
                 name: '_' + Math.floor(iname).toString(16),
                 parent: cur
             };
-            pushUpdate(node, '');
             traverse(cur.callee, modules[reqid]);
         }
         
