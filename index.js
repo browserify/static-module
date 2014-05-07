@@ -214,6 +214,7 @@ module.exports = function (modules, opts) {
         else {
             output.emit('error', new Error(
                 'unsupported type for static module: ' + node.parent.type
+                + '\nat expression:\n\n  ' + unparse(node.parent) + '\n'
             ));
         }
     }
