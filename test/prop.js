@@ -5,14 +5,14 @@ var fs = require('fs');
 var path = require('path');
 
 test('property', function (t) {
-    t.plan(2);
+    t.plan(1);
     
     var sm = staticModule({
-        fff: function (n) { return n * 111 }
+        fff: function (n) { return '[' + (n * 111) + ']' }
     });
     readStream('source.js').pipe(sm).pipe(concat(function (body) {
         Function(['console'],body)({ log: log });
-        function log (msg) { t.equal(msg, '555') }
+        function log (msg) { t.deepEqual(msg, '[object Array]') }
     }));
 });
 
