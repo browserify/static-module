@@ -65,6 +65,9 @@ under an optional set of `opts.vars` variables.
 Property functions can return streams, in which case their contents will be
 piped directly into the source output.
 
+Otherwise, the return values of functions will be inlined into the source in
+place as strings.
+
 # install
 
 With [npm](https://npmjs.org) do:
