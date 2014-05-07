@@ -143,7 +143,7 @@ module.exports = function (modules, opts) {
             traverse(cur.callee, modules[reqid]);
         }
         
-        if (node.type === 'Identifier' && varNames[node.name]) {
+        if (node.type === 'Identifier' && has(varNames, node.name)) {
             var vn = varNames[node.name];
             if (Array.isArray(vn)) {
                 traverse(node, modules[vn[0]][vn[1]]);
