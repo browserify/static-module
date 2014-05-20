@@ -28,7 +28,11 @@ module.exports = function (modules, opts) {
     
     var output = through();
     return duplexer(concat(function (body) {
-        try { var src = falafel(body.toString('utf8'), walk) }
+        try {
+            var src = falafel(body.toString('utf8'), function (node) {
+                walk(node, pushUpdate);
+            });
+        }
         catch (err) { return error(err) }
         if (pending === 0) finish(src);
     }), output);
@@ -64,7 +68,7 @@ module.exports = function (modules, opts) {
         output.emit('error', new Error(msg));
     }
     
-    function walk (node) {
+    function walk (node, pushUpdate) {
         var isreq = false, reqid;
         if (isRequire(node)) {
             reqid = node.arguments[0].value;
@@ -82,9 +86,15 @@ module.exports = function (modules, opts) {
                 pushUpdate(node.parent.parent, '');
             }
             else {
+                var psrc = unparse(node.parent.parent);
                 pushUpdate(
                     node.parent.parent,
-                    unparse(node.parent.parent)
+                    //unparse(node.parent.parent)
+                    falafel(psrc, function (node) {
+                        walk(node, function (node, s) {
+                            node.update(String(s));
+                        });
+                    }).toString()
                 );
             }
         }
