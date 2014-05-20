@@ -27,6 +27,28 @@ test('multi-vars', function (t) {
     }));
 });
 
+test('2-var', function (t) {
+    t.plan(2);
+    
+    var expected = [ 'beep boop' ];
+    var sm = staticModule({
+        fs: {
+            readFileSync: function (file, enc) {
+                return fs.createReadStream(file).pipe(quote());
+            }
+        }
+    }, { vars: { __dirname: path.join(__dirname, 'vars') } });
+    
+    readStream('one.js').pipe(sm).pipe(concat(function (body) {
+        t.equal(
+            body.toString('utf8'),
+            'var html = "beep boop";;\nconsole.log(html);\n'
+        );
+        Function(['console'],body)({ log: log });
+        function log (msg) { t.equal(msg, expected.shift()) }
+    }));
+});
+
 function readStream (file) {
     return fs.createReadStream(path.join(__dirname, 'vars', file));
 }
