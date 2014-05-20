@@ -15,14 +15,14 @@ test('multi-vars', function (t) {
                 return fs.createReadStream(file).pipe(quote());
             }
         }
-    }, { vars: { __dirname: path.join(__dirname, 'mixed') } });
+    }, { vars: { __dirname: path.join(__dirname, 'vars') } });
     
     readStream('source.js').pipe(sm).pipe(concat(function (body) {
-        Function(['console'],body)({ log: log });
         t.equal(
             body.toString('utf8'),
-            'var html = "beep boop!"\nconsole.log(html);\n'
+            'var html = "beep boop", x = \'!\';;\nconsole.log(html + x);\n'
         );
+        Function(['console'],body)({ log: log });
         function log (msg) { t.equal(msg, expected.shift()) }
     }));
 });
