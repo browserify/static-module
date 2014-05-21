@@ -28,11 +28,7 @@ module.exports = function (modules, opts) {
     
     var output = through();
     return duplexer(concat(function (body) {
-        try {
-            var src = falafel(body.toString('utf8'), function (node) {
-                walk(node, pushUpdate);
-            });
-        }
+        try { var src = falafel(body.toString('utf8'), walk) }
         catch (err) { return error(err) }
         if (pending === 0) finish(src);
     }), output);
@@ -68,7 +64,7 @@ module.exports = function (modules, opts) {
         output.emit('error', new Error(msg));
     }
     
-    function walk (node, pushUpdate) {
+    function walk (node) {
         var isreq = false, reqid;
         if (isRequire(node)) {
             reqid = node.arguments[0].value;
@@ -82,21 +78,9 @@ module.exports = function (modules, opts) {
             var ix = decs.indexOf(node.parent);
             if (ix >= 0) decs.splice(ix, 1);
             
-            if (decs.length === 0) {
-                pushUpdate(node.parent.parent, '');
-            }
-            else {
-                var psrc = unparse(node.parent.parent);
-                pushUpdate(
-                    node.parent.parent,
-                    //unparse(node.parent.parent)
-                    falafel(psrc, function (node) {
-                        walk(node, function (node, s) {
-                            node.update(String(s));
-                        });
-                    }).toString()
-                );
-            }
+            var psrc = unparse(node.parent.parent);
+            var rep = falafel(psrc, walk);
+            pushUpdate(node.parent.parent, rep);
         }
         else if (isreq && node.parent.type === 'AssignmentExpression'
         && node.parent.left.type === 'Identifier') {

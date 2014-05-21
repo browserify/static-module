@@ -62,6 +62,7 @@ test('5-var', function (t) {
     }, { vars: { __dirname: path.join(__dirname, 'vars') } });
     
     readStream('five.js').pipe(sm).pipe(concat(function (body) {
+console.log('---\n', body.toString('utf8'), '\n---\n');
         Function(['console'],body)({ log: log });
         function log (msg) { t.equal(msg, expected.shift()) }
     }));
