@@ -77,15 +77,25 @@ module.exports = function (modules, opts) {
             varNames[node.parent.id.name] = reqid;
             var decs = node.parent.parent.declarations;
             var ix = decs.indexOf(node.parent);
-            if (ix >= 0) decs.splice(ix, 1);
+            var dec;
+            if (ix >= 0) {
+                decs.splice(ix, 1);
+            }
             
             var rep;
             if (decs.length === 0) {
                 rep = '';
             }
             else {
-                var psrc = unparse(node.parent.parent);
-                rep = falafel(psrc, walk);
+                var offset = 0;
+                rep = 'var ' + decs.map(function (d) {
+                    var src = unparse(d);
+                    updates.push({ offset: offset - node.parent.range[0] });
+                    offset += node.parent.range[1] - d.range[1] + d.range[0];
+                    var s = falafel(src, walk).toString();
+                    return s;
+                }).join(', ');
+                
             }
             pushUpdate(node.parent.parent, rep);
         }

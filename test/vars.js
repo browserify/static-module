@@ -20,7 +20,7 @@ test('multi-vars', function (t) {
     readStream('source.js').pipe(sm).pipe(concat(function (body) {
         t.equal(
             body.toString('utf8'),
-            'var html = "beep boop", x = \'!\';;\nconsole.log(html + x);\n'
+            'var html = "beep boop", x = \'!\';\nconsole.log(html + x);\n'
         );
         Function(['console'],body)({ log: log });
         function log (msg) { t.equal(msg, expected.shift()) }
@@ -42,7 +42,7 @@ test('2-var', function (t) {
     readStream('one.js').pipe(sm).pipe(concat(function (body) {
         t.equal(
             body.toString('utf8'),
-            'var html = "beep boop";;\nconsole.log(html);\n'
+            'var html = "beep boop";\nconsole.log(html);\n'
         );
         Function(['console'],body)({ log: log });
         function log (msg) { t.equal(msg, expected.shift()) }
