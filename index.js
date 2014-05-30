@@ -61,7 +61,8 @@ module.exports = function (modules, opts) {
     }
     
     function error (msg) {
-        output.emit('error', new Error(msg));
+        var err = typeof msg === 'string' ? new Error(msg) : msg;
+        output.emit('error', err);
     }
     
     function walk (node) {
