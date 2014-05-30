@@ -78,8 +78,14 @@ module.exports = function (modules, opts) {
             var ix = decs.indexOf(node.parent);
             if (ix >= 0) decs.splice(ix, 1);
             
-            var psrc = unparse(node.parent.parent);
-            var rep = falafel(psrc, walk);
+            var rep;
+            if (decs.length === 0) {
+                rep = '';
+            }
+            else {
+                var psrc = unparse(node.parent.parent);
+                rep = falafel(psrc, walk);
+            }
             pushUpdate(node.parent.parent, rep);
         }
         else if (isreq && node.parent.type === 'AssignmentExpression'
