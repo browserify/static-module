@@ -12,10 +12,10 @@ var inspect = require('object-inspect');
 var evaluate = require('static-eval');
 var copy = require('shallow-copy');
 
-module.exports = function (modules, opts) {
-    var varNames = {};
+module.exports = function parse (modules, opts) {
     if (!opts) opts = {};
     var vars = opts.vars || {};
+    var varNames = opts.varNames || {};
     var pending = 0;
     var updates = [];
     
@@ -87,15 +87,21 @@ module.exports = function (modules, opts) {
                 rep = '';
             }
             else {
-                var offset = 0;
-                rep = 'var ' + decs.map(function (d) {
-                    var src = unparse(d);
-                    updates.push({ offset: offset - node.parent.range[0] });
-                    offset += node.parent.range[1] - d.range[1] + d.range[0];
-                    var s = falafel(src, walk).toString();
-                    return s;
+                var rep = 'var ' + decs.map(function (d, i) {
+                    var s = parse(modules, {
+                        vars: vars,
+                        varNames: varNames
+                    });
+                    updates.push({
+                        range: [
+                            4 + i * 2,
+                            4 + i * 2
+                        ],
+                        stream: s
+                    });
+                    s.end(unparse(d));
+                    return '';
                 }).join(', ');
-                
             }
             pushUpdate(node.parent.parent, rep);
         }
