@@ -16,6 +16,8 @@ module.exports = function parse (modules, opts) {
     if (!opts) opts = {};
     var vars = opts.vars || {};
     var varNames = opts.varNames || {};
+    var seen = opts.seen || {};
+    var seenOffset = opts.seenOffset || 0;
     var pending = 0;
     var updates = [];
     
@@ -87,21 +89,28 @@ module.exports = function parse (modules, opts) {
                 rep = '';
             }
             else {
-                var rep = 'var ' + decs.map(function (d, i) {
+                var src = unparse(node.parent.parent);
+                updates.push({
+                    range: [ 0, src.length ],
+                    stream: st('var ')
+                });
+                decs.forEach(function (d, i) {
                     var s = parse(modules, {
+                        seen: seen,
+                        seenOffset: seenOffset + d.range[0],
                         vars: vars,
                         varNames: varNames
                     });
                     updates.push({
                         range: [
-                            4 + i * 2,
-                            4 + i * 2
+                            d.range[0],
+                            d.range[1] + 1
                         ],
                         stream: s
                     });
                     s.end(unparse(d));
-                    return '';
-                }).join(', ');
+                });
+                rep = '';
             }
             pushUpdate(node.parent.parent, rep);
         }
@@ -170,6 +179,10 @@ module.exports = function parse (modules, opts) {
     }
     
     function traverse (node, val) {
+        var key = (node.range[0] + seenOffset)
+            + ',' + (node.range[1] + seenOffset)
+        ;
+        
         if (node.parent.type === 'CallExpression') {
             if (typeof val !== 'function') {
                 return error(
@@ -182,6 +195,8 @@ module.exports = function parse (modules, opts) {
             var res = evaluate(node.parent, xvars);
             
             if (isStream(res)) {
+                if (seen[key]) return;
+                seen[key] = true;
                 updates.push({
                     range: node.parent.range,
                     stream: wrapStream(res)
@@ -218,10 +233,13 @@ module.exports = function parse (modules, opts) {
             
             var res = evaluate(cur, xvars);
             if (isStream(res)) {
-                updates.push({
-                    range: cur.range,
-                    stream: wrapStream(res)
-                });
+                if (!seen[key]) {
+                    updates.push({
+                        range: cur.range,
+                        stream: wrapStream(res)
+                    });
+                }
+                seen[key] = true;
                 cur.update('');
             }
             else if (res !== undefined) {
@@ -257,4 +275,12 @@ function isStream (s) {
 function wrapStream (s) {
     if (typeof s.read === 'function') return s
     else return (new Readable).wrap(s)
+}
+
+function st (msg) {
+    var r = new Readable;
+    r._read = function () {};
+    r.push(msg);
+    r.push(null);
+    return r;
 }
