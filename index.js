@@ -202,7 +202,8 @@ module.exports = function parse (modules, opts) {
     }
     
     function traverse (node, val) {
-        for (var p = node; p.parent; p = p.parent) {
+        for (var p = node; p; p = p.parent) {
+            if (!p.range) continue;
             var key = (p.range[0] + skipOffset)
                 + ',' + (p.range[1] + skipOffset)
             ;
