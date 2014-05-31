@@ -118,12 +118,12 @@ module.exports = function parse (modules, opts) {
                         stream: s
                     });
                     if (i < decs.length - 1) {
- 
+                        var comma = body.slice(d.range[1], decs[i+1].range[0]);
                         updates.push({
                             range: [
-                                d.range[1], d.range[1] + 2
+                                d.range[1], d.range[1] + comma.length
                             ],
-                            stream: st(', ')
+                            stream: st(comma)
                         });
                     }
                     s.end(unparse(d));
