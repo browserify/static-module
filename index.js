@@ -16,8 +16,8 @@ module.exports = function parse (modules, opts) {
     if (!opts) opts = {};
     var vars = opts.vars || {};
     var varNames = opts.varNames || {};
-    var seen = opts.seen || {};
-    var seenOffset = opts.seenOffset || 0;
+    var skip = opts.skip || {};
+    var skipOffset = opts.skipOffset || 0;
     var pending = 0;
     var updates = [];
     
@@ -95,9 +95,14 @@ module.exports = function parse (modules, opts) {
                     stream: st('var ')
                 });
                 decs.forEach(function (d, i) {
+                    var key = (d.range[0] + node.range[0] + skipOffset)
+                        + ',' + (d.range[0] + node.range[0] + 2 + skipOffset)
+                    ;
+                    skip[key] = true;
+                    
                     var s = parse(modules, {
-                        seen: seen,
-                        seenOffset: seenOffset + d.range[0],
+                        skip: skip,
+                        skipOffset: skipOffset + d.range[0],
                         vars: vars,
                         varNames: varNames
                     });
@@ -108,6 +113,14 @@ module.exports = function parse (modules, opts) {
                         ],
                         stream: s
                     });
+                    if (i < decs.length - 1) {
+                        updates.push({
+                            range: [
+                                d.range[1], d.range[1] + 2
+                            ],
+                            stream: st(', ')
+                        });
+                    }
                     s.end(unparse(d));
                 });
                 rep = '';
@@ -179,9 +192,14 @@ module.exports = function parse (modules, opts) {
     }
     
     function traverse (node, val) {
-        var key = (node.range[0] + seenOffset)
-            + ',' + (node.range[1] + seenOffset)
+        var key = (node.range[0] + skipOffset)
+            + ',' + (node.range[1] + skipOffset)
         ;
+console.log(key, skip[key]); 
+        if (skip[key]) {
+            skip[key] = false;
+            return;
+        }
         
         if (node.parent.type === 'CallExpression') {
             if (typeof val !== 'function') {
@@ -195,8 +213,6 @@ module.exports = function parse (modules, opts) {
             var res = evaluate(node.parent, xvars);
             
             if (isStream(res)) {
-                if (seen[key]) return;
-                seen[key] = true;
                 updates.push({
                     range: node.parent.range,
                     stream: wrapStream(res)
@@ -233,13 +249,10 @@ module.exports = function parse (modules, opts) {
             
             var res = evaluate(cur, xvars);
             if (isStream(res)) {
-                if (!seen[key]) {
-                    updates.push({
-                        range: cur.range,
-                        stream: wrapStream(res)
-                    });
-                }
-                seen[key] = true;
+                updates.push({
+                    range: cur.range,
+                    stream: wrapStream(res)
+                });
                 cur.update('');
             }
             else if (res !== undefined) {
