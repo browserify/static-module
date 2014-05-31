@@ -85,6 +85,7 @@ module.exports = function parse (modules, opts) {
             var ix = decs.indexOf(node.parent);
             var dec;
             if (ix >= 0) {
+                dec = decs[ix];
                 decs.splice(ix, 1);
             }
             
@@ -118,7 +119,11 @@ module.exports = function parse (modules, opts) {
                         stream: s
                     });
                     if (i < decs.length - 1) {
-                        var comma = body.slice(d.range[1], decs[i+1].range[0]);
+                        var comma;
+                        if (i === ix - 1) {
+                            comma = body.slice(d.range[1], dec.range[0]);
+                        }
+                        else comma = body.slice(d.range[1], decs[i+1].range[0]);
                         updates.push({
                             range: [
                                 d.range[1], d.range[1] + comma.length
@@ -202,7 +207,6 @@ module.exports = function parse (modules, opts) {
                 + ',' + (p.range[1] + skipOffset)
             ;
             if (skip[key]) {
-                console.log('WALK', key, unparse(node));
                 skip[key] = false;
                 return;
             }

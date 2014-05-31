@@ -57,14 +57,12 @@ test('all inline', function (t) {
         } }
     }, { vars: { __dirname: path.join(__dirname, 'many') } });
     readStream('all_inline.js').pipe(sm).pipe(concat(function (body) {
-console.log(body.toString('utf8')); 
         Function(['console'],body)({ log: log });
         t.equal(
             body.toString('utf8'),
-            '\nvar a = "A!\\n",\n'
+            'var a = "A!\\n",\n'
             + '    b = "B!\\n",\n'
-            + '    c = "C!\\n",\n'
-            + ';\n'
+            + '    c = "C!\\n";\n'
             + 'console.log(a + b + c);\n'
         );
         function log (msg) { t.equal(msg, 'A!\nB!\nC!\n') }

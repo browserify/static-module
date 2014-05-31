@@ -20,7 +20,7 @@ test('multi-vars', function (t) {
     readStream('source.js').pipe(sm).pipe(concat(function (body) {
         t.equal(
             body.toString('utf8'),
-            'var html = "beep boop", x = \'!\';\nconsole.log(html + x);\n'
+            'var html = "beep boop",\n  x = \'!\';\nconsole.log(html + x);\n'
         );
         Function(['console'],body)({ log: log });
         function log (msg) { t.equal(msg, expected.shift()) }
@@ -62,7 +62,6 @@ test('5-var', function (t) {
     }, { vars: { __dirname: path.join(__dirname, 'vars') } });
     
     readStream('five.js').pipe(sm).pipe(concat(function (body) {
-console.log('---\n', body.toString('utf8'), '\n---\n');
         Function(['console'],body)({ log: log });
         function log (msg) { t.equal(msg, expected.shift()) }
     }));
