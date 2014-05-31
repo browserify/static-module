@@ -113,8 +113,8 @@ module.exports = function parse (modules, opts) {
                     });
                     updates.push({
                         range: [
-                            d.range[0],
-                            d.range[1] + 1
+                            d.init.range[0],
+                            d.init.range[1]
                         ],
                         stream: s
                     });
