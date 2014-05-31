@@ -29,8 +29,12 @@ module.exports = function parse (modules, opts) {
     }
     
     var output = through();
-    return duplexer(concat(function (body) {
-        try { var src = falafel(body.toString('utf8'), walk) }
+    var body;
+    return duplexer(concat(function (buf) {
+        try {
+            body = buf.toString('utf8');
+            var src = falafel(body, walk)
+        }
         catch (err) { return error(err) }
         if (pending === 0) finish(src);
     }), output);
@@ -95,14 +99,14 @@ module.exports = function parse (modules, opts) {
                     stream: st('var ')
                 });
                 decs.forEach(function (d, i) {
-                    var key = (d.range[0] + node.range[0] + skipOffset)
-                        + ',' + (d.range[0] + node.range[0] + 2 + skipOffset)
+                    var key = (d.range[0] + skipOffset)
+                        + ',' + (d.range[1] + skipOffset)
                     ;
                     skip[key] = true;
                     
                     var s = parse(modules, {
                         skip: skip,
-                        skipOffset: skipOffset + d.range[0],
+                        skipOffset: skipOffset + d.init.range[0],
                         vars: vars,
                         varNames: varNames
                     });
@@ -114,6 +118,7 @@ module.exports = function parse (modules, opts) {
                         stream: s
                     });
                     if (i < decs.length - 1) {
+ 
                         updates.push({
                             range: [
                                 d.range[1], d.range[1] + 2
@@ -192,10 +197,17 @@ module.exports = function parse (modules, opts) {
     }
     
     function traverse (node, val) {
-        var key = (node.range[0] + skipOffset)
-            + ',' + (node.range[1] + skipOffset)
-        ;
-console.log(key, skip[key]); 
+        for (var p = node; p.parent; p = p.parent) {
+            var key = (p.range[0] + skipOffset)
+                + ',' + (p.range[1] + skipOffset)
+            ;
+            if (skip[key]) {
+                console.log('WALK', key, unparse(node));
+                skip[key] = false;
+                return;
+            }
+        }
+        
         if (skip[key]) {
             skip[key] = false;
             return;
