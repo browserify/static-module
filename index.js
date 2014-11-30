@@ -18,7 +18,6 @@ module.exports = function parse (modules, opts) {
     var varNames = opts.varNames || {};
     var skip = opts.skip || {};
     var skipOffset = opts.skipOffset || 0;
-    var pending = 0;
     var updates = [];
     
     function pushUpdate (node, s) {
@@ -36,7 +35,7 @@ module.exports = function parse (modules, opts) {
             var src = falafel(body, walk)
         }
         catch (err) { return error(err) }
-        if (pending === 0) finish(src);
+        finish(src);
     }), output);
     
     function finish (src) {
