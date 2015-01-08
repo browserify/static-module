@@ -55,6 +55,9 @@ module.exports = function parse (modules, opts) {
             pos = s.range[0] - offset;
             offset += s.range[1] - s.range[0];
             
+            s.stream.on('error', function(err){
+                output.emit('error', err);
+            });
             s.stream.on('end', next);
             s.stream.pipe(output, { end: false });
         })();
