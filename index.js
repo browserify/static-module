@@ -115,14 +115,13 @@ module.exports = function parse (modules, opts) {
                 decs.splice(ix, 1);
             }
             
-            var rep;
-            if (decs.length === 0) {
-                rep = '';
-            }
-            else {
+            if (decs.length) {
                 var src = unparse(node.parent.parent);
                 updates.push({
-                    range: [ 0, src.length ],
+                    range: [
+                        node.parent.parent.range[0],
+                        node.parent.parent.range[1] + 1
+                    ],
                     stream: st('var ')
                 });
                 decs.forEach(function (d, i) {
@@ -139,8 +138,8 @@ module.exports = function parse (modules, opts) {
                     });
                     updates.push({
                         range: [
-                            d.init.range[0],
-                            d.init.range[1]
+                            node.parent.parent.range[0],
+                            node.parent.parent.range[1] - d.init.range[0] - 2
                         ],
                         stream: s
                     });
@@ -159,9 +158,8 @@ module.exports = function parse (modules, opts) {
                     }
                     s.end(unparse(d));
                 });
-                rep = '';
             }
-            pushUpdate(node.parent.parent, rep);
+            pushUpdate(node.parent.parent, '');
         }
         else if (isreqm && node.parent.type === 'AssignmentExpression'
         && node.parent.left.type === 'Identifier') {

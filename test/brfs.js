@@ -71,7 +71,7 @@ test('readFileSync attribute with multiple vars', function (t) {
 });
 
 test('readFileSync attribute with multiple require vars', function (t) {
-    //t.plan(2);
+    t.plan(2);
     var sm = staticModule({
         fs: {
             readFileSync: function (file) {
@@ -80,13 +80,8 @@ test('readFileSync attribute with multiple require vars', function (t) {
         }
     }, { vars: { __dirname: path.join(__dirname, 'brfs') } });
     readStream('multi_require.js').pipe(sm).pipe(concat(function (body) {
-console.error('DISABLED FOR NOW');
-console.error('<OUTPUT>');
-console.error(body.toString('utf8'));
-console.error('</OUTPUT>');
-return t.end();
         t.equal(body.toString('utf8'),
-            'var x = 5;'
+            'var x = 5'
             + '\nvar src = "beep boop\\n";'
             + '\nconsole.log(src);\n'
         );
