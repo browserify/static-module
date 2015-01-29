@@ -11,11 +11,13 @@ var unparse = require('escodegen').generate;
 var inspect = require('object-inspect');
 var evaluate = require('static-eval');
 var copy = require('shallow-copy');
+var has = require('has');
 
 module.exports = function parse (modules, opts) {
     if (!opts) opts = {};
     var vars = opts.vars || {};
     var varNames = opts.varNames || {};
+    var varModules = opts.varModules || {};
     var skip = opts.skip || {};
     var skipOffset = opts.skipOffset || 0;
     var updates = [];
@@ -71,13 +73,38 @@ module.exports = function parse (modules, opts) {
     }
     
     function walk (node) {
-        var isreq = false, reqid;
-        if (isRequire(node)) {
+        var isreq = isRequire(node);
+        var isreqm = false, isreqv = false, reqid;
+        if (isreq) {
             reqid = node.arguments[0].value;
-            isreq = has(modules, reqid);
+            isreqm = has(modules, reqid);
+            isreqv = has(varModules, reqid);
         }
         
-        if (isreq && node.parent.type === 'VariableDeclarator'
+        if (isreqv && node.parent.type === 'VariableDeclarator'
+        && node.parent.id.type === 'Identifier') {
+            vars[node.parent.id.name] = varModules[reqid];
+        }
+        else if (isreqv && node.parent.type === 'AssignmentExpression'
+        && node.parent.left.type === 'Identifier') {
+            vars[node.parent.left.name] = varModules[reqid];
+        }
+        else if (isreqv && node.parent.type === 'MemberExpression'
+        && node.parent.property.type === 'Identifier'
+        && node.parent.parent.type === 'VariableDeclarator'
+        && node.parent.parent.id.type === 'Identifier') {
+            var v = varModules[reqid][node.parent.property.name];
+            vars[node.parent.parent.id.name] = v;
+        }
+        else if (isreqv && node.parent.type === 'MemberExpression'
+        && node.parent.property.type === 'Identifier') {
+            //vars[node.parent.parent.id.name] = varModules[reqid];
+        }
+        else if (isreqv && node.parent.type === 'CallExpression') {
+            //
+        }
+        
+        if (isreqm && node.parent.type === 'VariableDeclarator'
         && node.parent.id.type === 'Identifier') {
             varNames[node.parent.id.name] = reqid;
             var decs = node.parent.parent.declarations;
@@ -136,7 +163,7 @@ module.exports = function parse (modules, opts) {
             }
             pushUpdate(node.parent.parent, rep);
         }
-        else if (isreq && node.parent.type === 'AssignmentExpression'
+        else if (isreqm && node.parent.type === 'AssignmentExpression'
         && node.parent.left.type === 'Identifier') {
             varNames[node.parent.left.name] = reqid;
             var cur = node.parent.parent;
@@ -151,7 +178,7 @@ module.exports = function parse (modules, opts) {
             }
             else pushUpdate(cur, '');
         }
-        else if (isreq && node.parent.type === 'MemberExpression'
+        else if (isreqm && node.parent.type === 'MemberExpression'
         && node.parent.property.type === 'Identifier'
         && node.parent.parent.type === 'VariableDeclarator'
         && node.parent.parent.id.type === 'Identifier') {
@@ -172,7 +199,7 @@ module.exports = function parse (modules, opts) {
                 );
             }
         }
-        else if (isreq && node.parent.type === 'MemberExpression'
+        else if (isreqm && node.parent.type === 'MemberExpression'
         && node.parent.property.type === 'Identifier') {
             var name = node.parent.property.name;
             var cur = copy(node.parent.parent);
@@ -180,7 +207,7 @@ module.exports = function parse (modules, opts) {
             cur.callee.parent = cur;
             traverse(cur.callee, modules[reqid][name]);
         }
-        else if (isreq && node.parent.type === 'CallExpression') {
+        else if (isreqm && node.parent.type === 'CallExpression') {
             var cur = copy(node.parent);
             var iname = Math.pow(16,8) * Math.random();
             cur.callee = {
@@ -291,10 +318,6 @@ function isRequire (node) {
         && c.type === 'Identifier'
         && c.name === 'require'
     ;
-}
-
-function has (obj, key) {
-    return {}.hasOwnProperty.call(obj, key);
 }
 
 function isStream (s) {

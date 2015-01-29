@@ -15,12 +15,17 @@ test('variable modules', function (t) {
                 return fs.createReadStream(file).pipe(quote());
             }
         }
-    }, { vars: { __dirname: path.join(__dirname, 'vars') } });
+    }, {
+        vars: { __dirname: path.join(__dirname, 'vars') },
+        varModules: { path: require('path') }
+    });
     
     readStream('source.js').pipe(sm).pipe(concat(function (body) {
         t.equal(
             body.toString('utf8'),
-            'var html = "beep boop",\n  x = \'!\';\nconsole.log(html + x);\n'
+            '\nvar path = require(\'path\');'
+            + '\nvar html = "beep boop";\nvar x = \'!\';'
+            + '\nconsole.log(html + x);\n'
         );
         Function(['console','require'],body)({ log: log },require);
         function log (msg) { t.equal(msg, expected.shift()) }
