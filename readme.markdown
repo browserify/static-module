@@ -68,6 +68,37 @@ piped directly into the source output.
 Otherwise, the return values of functions will be inlined into the source in
 place as strings.
 
+Use `opts.varModules` to map whitelisted module names to definitions that can be
+declared in client code with `var` and will appear in static expressions like
+`opts.vars`.
+
+For example, to make this code with `path.join()` work:
+
+``` js
+var fs = require('fs');
+var path = require('path');
+var src = fs.readFileSync(path.join(__dirname, 'x.txt'), 'utf8');
+console.log(src);
+```
+
+you can do:
+
+``` js
+var staticModule = require('static-module');
+var quote = require('quote-stream');
+var fs = require('fs');
+
+var sm = staticModule({
+    fs: {
+        readFileSync: function (file) {
+            return fs.createReadStream(file).pipe(quote());
+        }
+    },
+    varMods: { path: require('path') }
+}, { vars: { __dirname: __dirname + '/brfs' } });
+process.stdin.pipe(sm).pipe(process.stdout);
+```
+
 # install
 
 With [npm](https://npmjs.org) do:
