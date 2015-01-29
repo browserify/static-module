@@ -92,6 +92,29 @@ test('readFileSync attribute with multiple require vars', function (t) {
     }));
 });
 
+test('readFileSync attribute with multiple require vars x5', function (t) {
+    t.plan(2);
+    var sm = staticModule({
+        fs: {
+            readFileSync: function (file) {
+                return fs.createReadStream(file).pipe(quote());
+            }
+        }
+    }, { vars: { __dirname: path.join(__dirname, 'brfs') } });
+    readStream('x5.js').pipe(sm).pipe(concat(function (body) {
+        t.equal(body.toString('utf8'),
+            'var a = 1, b = 2, c = 3, d = 4, '
+            + 'src = "beep boop\\n",\n'
+            + '  e = 5;\n'
+            + 'console.log(src);\n'
+        );
+        vm.runInNewContext(body.toString('utf8'), {
+            console: { log: log }
+        });
+        function log (msg) { t.equal(msg, 'beep boop\n') }
+    }));
+});
+
 function readStream (file) {
     return fs.createReadStream(path.join(__dirname, 'brfs', file));
 }
