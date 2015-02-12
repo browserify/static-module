@@ -24,7 +24,7 @@ module.exports = function parse (modules, opts) {
     
     function pushUpdate (node, s) {
         var rep = String(s);
-        var prev = node.range[1] - node.range[0];
+        var prev = node.end - node.start;
         updates.push({ offset: prev - rep.length });
         node.update(rep);
     }
@@ -53,9 +53,9 @@ module.exports = function parse (modules, opts) {
                 return next();
             }
             
-            output.push(src.slice(pos, s.range[0] - offset));
-            pos = s.range[0] - offset;
-            offset += s.range[1] - s.range[0];
+            output.push(src.slice(pos, s.start - offset));
+            pos = s.start - offset;
+            offset += s.end - s.start;
             
             s.stream.on('end', next);
             s.stream.pipe(output, { end: false });
@@ -118,41 +118,36 @@ module.exports = function parse (modules, opts) {
             if (decs.length) {
                 var src = unparse(node.parent.parent);
                 updates.push({
-                    range: [
-                        node.parent.parent.range[0],
-                        node.parent.parent.range[1] + 1
-                    ],
+                    start: node.parent.parent.start,
+                    end: node.parent.parent.end + 1,
                     stream: st('var ')
                 });
                 decs.forEach(function (d, i) {
-                    var key = (d.range[0] + skipOffset)
-                        + ',' + (d.range[1] + skipOffset)
+                    var key = (d.start + skipOffset)
+                        + ',' + (d.end + skipOffset)
                     ;
                     skip[key] = true;
                     
                     var s = parse(modules, {
                         skip: skip,
-                        skipOffset: skipOffset + d.init.range[0],
+                        skipOffset: skipOffset + d.init.start,
                         vars: vars,
                         varNames: varNames
                     });
                     updates.push({
-                        range: [
-                            node.parent.parent.range[0],
-                            node.parent.parent.range[1] - d.init.range[0] - 2
-                        ],
+                        start: node.parent.parent.start,
+                        end: node.parent.parent.end - d.init.start - 2,
                         stream: s
                     });
                     if (i < decs.length - 1) {
                         var comma;
                         if (i === ix - 1) {
-                            comma = body.slice(d.range[1], dec.range[0]);
+                            comma = body.slice(d.end, dec.start);
                         }
-                        else comma = body.slice(d.range[1], decs[i+1].range[0]);
+                        else comma = body.slice(d.end, decs[i+1].start);
                         updates.push({
-                            range: [
-                                d.range[1], d.range[1] + comma.length
-                            ],
+                            start: d.end,
+                            end: d.end + comma.length,
                             stream: st(comma)
                         });
                     }
@@ -227,9 +222,9 @@ module.exports = function parse (modules, opts) {
     
     function traverse (node, val) {
         for (var p = node; p; p = p.parent) {
-            if (!p.range) continue;
-            var key = (p.range[0] + skipOffset)
-                + ',' + (p.range[1] + skipOffset)
+            if (p.start === undefined || p.end === undefined) continue;
+            var key = (p.start + skipOffset)
+                + ',' + (p.end + skipOffset)
             ;
             if (skip[key]) {
                 skip[key] = false;
@@ -255,7 +250,8 @@ module.exports = function parse (modules, opts) {
             
             if (isStream(res)) {
                 updates.push({
-                    range: node.parent.range,
+                    start: node.parent.start,
+                    end: node.parent.end,
                     stream: wrapStream(res)
                 });
                 pushUpdate(node.parent, '');
@@ -291,7 +287,8 @@ module.exports = function parse (modules, opts) {
             var res = evaluate(cur, xvars);
             if (isStream(res)) {
                 updates.push({
-                    range: cur.range,
+                    start: cur.start,
+                    end: cur.end,
                     stream: wrapStream(res)
                 });
                 cur.update('');
