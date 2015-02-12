@@ -34,7 +34,7 @@ module.exports = function parse (modules, opts) {
     return duplexer(concat(function (buf) {
         try {
             body = buf.toString('utf8');
-            var src = falafel(body, walk)
+            var src = falafel(body, { ecmaVersion: 6 }, walk)
         }
         catch (err) { return error(err) }
         finish(src);
