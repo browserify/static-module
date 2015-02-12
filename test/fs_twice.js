@@ -24,6 +24,24 @@ test('fs.readFileSync twice', function (t) {
     }));
 });
 
+test('fs.readFileSync twice in vars', function (t) {
+    var expected = [ 'EXTERMINATE\n', 'beep boop\n' ];
+    t.plan(expected.length + 1);
+    var sm = staticModule({
+        fs: { readFileSync: readFileSync }
+    }, { vars: { __dirname: __dirname + '/fs_twice' } });
+    readStream('vars.js').pipe(sm).pipe(concat(function (body) {
+        t.equal(body.toString('utf8').trim(),
+            'var a = "EXTERMINATE\\n",\n'
+            + '    b = "beep boop\\n";\n'
+            + 'console.log(a);\n'
+            + 'console.log(b);'
+        );
+        Function(['console'],body)({ log: log });
+        function log (msg) { t.equal(msg, expected.shift()) }
+    }));
+});
+
 function readStream (file) {
     return fs.createReadStream(path.join(__dirname, 'fs_twice', file));
 }
