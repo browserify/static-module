@@ -55,10 +55,11 @@ module.exports = function parse (modules, opts) {
             
             output.push(src.slice(pos, s.start - offset));
             pos = s.start - offset;
-            offset += s.end - s.start;
+            offset += s.offset;
+            //offset += s.end - s.start;
             
-            s.stream.on('end', next);
             s.stream.pipe(output, { end: false });
+            s.stream.on('end', next);
         })();
         
         function done () {
@@ -120,6 +121,9 @@ module.exports = function parse (modules, opts) {
                 updates.push({
                     start: node.parent.parent.start,
                     end: node.parent.parent.end + 1,
+                    offset: node.parent.parent.end + 1
+                        - node.parent.parent.start
+                    ,
                     stream: st('var ')
                 });
                 decs.forEach(function (d, i) {
@@ -134,11 +138,13 @@ module.exports = function parse (modules, opts) {
                         vars: vars,
                         varNames: varNames
                     });
-                    updates.push({
+                    var up = {
                         start: node.parent.parent.start,
                         end: node.parent.parent.end - d.init.start - 2,
                         stream: s
-                    });
+                    };
+                    up.offset = up.end - up.start;
+                    updates.push(up);
                     if (i < decs.length - 1) {
                         var comma;
                         if (i === ix - 1) {
@@ -148,6 +154,7 @@ module.exports = function parse (modules, opts) {
                         updates.push({
                             start: d.end,
                             end: d.end + comma.length,
+                            offset: comma.length,
                             stream: st(comma)
                         });
                     }
@@ -252,6 +259,7 @@ module.exports = function parse (modules, opts) {
                 updates.push({
                     start: node.parent.start,
                     end: node.parent.end,
+                    offset: 0,
                     stream: wrapStream(res)
                 });
                 pushUpdate(node.parent, '');
@@ -289,6 +297,7 @@ module.exports = function parse (modules, opts) {
                 updates.push({
                     start: cur.start,
                     end: cur.end,
+                    offset: cur.end - cur.start,
                     stream: wrapStream(res)
                 });
                 cur.update('');

@@ -7,11 +7,11 @@ var fs = require('fs');
 var path = require('path');
 
 test('fs.readFileSync twice', function (t) {
-    t.plan(2);
+    var expected = [ 'EXTERMINATE\n', 'beep boop\n' ];
+    t.plan(expected.length + 1);
     var sm = staticModule({
         fs: { readFileSync: readFileSync }
     }, { vars: { __dirname: __dirname + '/fs_twice' } });
-    var expected = [ 'EXTERMINATE\n', 'beep boop\n' ];
     readStream('html.js').pipe(sm).pipe(concat(function (body) {
         t.equal(body.toString('utf8'),
             'var a = "EXTERMINATE\\n";\n'
