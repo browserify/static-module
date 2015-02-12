@@ -12,10 +12,10 @@ test('fs.readFile', function (t) {
         fs: { readFile: readFile }
     }, { vars: { __dirname: __dirname + '/fs' } });
     readStream('readfile.js').pipe(sm).pipe(concat(function (body) {
-        t.equal(body.toString('utf8'),
+        t.equal(body.toString('utf8').replace(/;/g,'').trim(),
             'process.nextTick(function(){(function (err, src) {\n'
-            + '    console.log(src);\n'
-            + '})(null,"beep boop\\n")});\n'
+            + '    console.log(src)\n'
+            + '})(null,"beep boop\\n")})'
         );
         Function(['console'],body)({ log: log });
         function log (msg) { t.equal(msg, 'beep boop\n') }
