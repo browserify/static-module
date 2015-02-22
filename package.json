@@ -17,6 +17,7 @@
     "through2": "~0.4.1"
   },
   "devDependencies": {
+    "resolve": "^1.1.5",
     "tape": "^3.4.0"
   },
   "scripts": {
