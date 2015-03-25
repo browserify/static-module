@@ -91,10 +91,10 @@ module.exports = function parse (modules, opts) {
             vars[node.parent.left.name] = varModules[reqid];
         }
         else if (isreqv && node.parent.type === 'MemberExpression'
-        && node.parent.property.type === 'Identifier'
+        && isStaticProperty(node.parent.property)
         && node.parent.parent.type === 'VariableDeclarator'
         && node.parent.parent.id.type === 'Identifier') {
-            var v = varModules[reqid][node.parent.property.name];
+            var v = varModules[reqid][resolveProperty(node.parent.property)];
             vars[node.parent.parent.id.name] = v;
         }
         else if (isreqv && node.parent.type === 'MemberExpression'
@@ -179,11 +179,11 @@ module.exports = function parse (modules, opts) {
             else pushUpdate(cur, '');
         }
         else if (isreqm && node.parent.type === 'MemberExpression'
-        && node.parent.property.type === 'Identifier'
+        && isStaticProperty(node.parent.property)
         && node.parent.parent.type === 'VariableDeclarator'
         && node.parent.parent.id.type === 'Identifier') {
             varNames[node.parent.parent.id.name] = [
-                reqid, node.parent.property.name
+                reqid, resolveProperty(node.parent.property)
             ];
             var decs = node.parent.parent.parent.declarations;
             var ix = decs.indexOf(node.parent.parent);
@@ -200,8 +200,8 @@ module.exports = function parse (modules, opts) {
             }
         }
         else if (isreqm && node.parent.type === 'MemberExpression'
-        && node.parent.property.type === 'Identifier') {
-            var name = node.parent.property.name;
+        && isStaticProperty(node.parent.property)) {
+            var name = resolveProperty(node.parent.property);
             var cur = copy(node.parent.parent);
             cur.callee = copy(node.parent.property);
             cur.callee.parent = cur;
@@ -267,7 +267,7 @@ module.exports = function parse (modules, opts) {
             else if (res !== undefined) pushUpdate(node.parent, res);
         }
         else if (node.parent.type === 'MemberExpression') {
-            if (node.parent.property.type !== 'Identifier') {
+            if (!isStaticProperty(node.parent.property)) {
                 return error(
                     'dynamic property in member expression: '
                     + node.parent.source()
@@ -331,6 +331,14 @@ function isStream (s) {
 function wrapStream (s) {
     if (typeof s.read === 'function') return s
     else return (new Readable).wrap(s)
+}
+
+function isStaticProperty(node) {
+    return node.type === 'Identifier' || node.type === 'Literal';
+}
+
+function resolveProperty(node) {
+    return node.type === 'Identifier' ? node.name : node.value;
 }
 
 function st (msg) {
