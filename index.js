@@ -33,7 +33,7 @@ module.exports = function parse (modules, opts) {
     var body;
     return duplexer(concat(function (buf) {
         try {
-            body = buf.toString('utf8');
+            body = buf.toString('utf8').replace(/^#!/, '//#!');
             var src = falafel(body, { ecmaVersion: 6 }, walk)
         }
         catch (err) { return error(err) }
