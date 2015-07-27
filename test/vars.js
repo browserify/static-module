@@ -70,7 +70,7 @@ test('5-var', function (t) {
 test('multi consecutive require vars', function (t) {
     t.plan(1);
     
-    var expected = [ 'beep boop12' ];
+    var expected = [ 'beep boop' ];
     var sm = staticModule({
         fs: {
             readFileSync: function (file, enc) {
@@ -80,7 +80,7 @@ test('multi consecutive require vars', function (t) {
     }, { vars: { __dirname: path.join(__dirname, 'vars') } });
     
     readStream('multi-require.js').pipe(sm).pipe(concat(function (body) {
-        Function(['console','require'],body)({ log: log }, function() {});
+        Function(['console','require'],body)({ log: log }, function() { return {} });
         function log (msg) { t.equal(msg, expected.shift()) }
     }));
 });
