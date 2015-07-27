@@ -22,42 +22,28 @@ module.exports = function parse (modules, opts) {
     var skipOffset = opts.skipOffset || 0;
     var updates = [];
     
-    function pushUpdate (node, s) {
-        var rep = String(s);
-        var prev = node.end - node.start;
-        updates.push({ offset: prev - rep.length });
-        node.update(rep);
-    }
-    
     var output = through();
     var body;
     return duplexer(concat(function (buf) {
         try {
             body = buf.toString('utf8').replace(/^#!/, '//#!');
-            var src = falafel(body, { ecmaVersion: 6 }, walk)
+            falafel(body, { ecmaVersion: 6 }, walk);
         }
         catch (err) { return error(err) }
-        finish(src);
+        finish(body);
     }), output);
     
     function finish (src) {
-        var offset = 0, pos = 0;
+        var pos = 0;
         src = String(src);
         
         (function next () {
             if (updates.length === 0) return done();
-            
             var s = updates.shift();
-            if (!s.stream) {
-                offset += s.offset;
-                return next();
-            }
-            
-            output.push(src.slice(pos, s.start - offset));
-            pos = s.start - offset;
-            offset += s.offset;
-            //offset += s.end - s.start;
-            
+
+            output.push(src.slice(pos, s.start));
+            pos = s.start + s.offset;
+
             s.stream.pipe(output, { end: false });
             s.stream.on('end', next);
         })();
@@ -120,10 +106,7 @@ module.exports = function parse (modules, opts) {
                 var src = unparse(node.parent.parent);
                 updates.push({
                     start: node.parent.parent.start,
-                    end: node.parent.parent.end + 1,
-                    offset: node.parent.parent.end + 1
-                        - node.parent.parent.start
-                    ,
+                    offset: node.parent.parent.end - node.parent.parent.start,
                     stream: st('var ')
                 });
                 decs.forEach(function (d, i) {
@@ -139,11 +122,10 @@ module.exports = function parse (modules, opts) {
                         varNames: varNames
                     });
                     var up = {
-                        start: node.parent.parent.start,
-                        end: node.parent.parent.end - d.init.start - 2,
+                        start: node.parent.parent.end,
+                        offset: 0,
                         stream: s
                     };
-                    up.offset = up.end - up.start;
                     updates.push(up);
                     if (i < decs.length - 1) {
                         var comma;
@@ -152,16 +134,28 @@ module.exports = function parse (modules, opts) {
                         }
                         else comma = body.slice(d.end, decs[i+1].start);
                         updates.push({
-                            start: d.end,
-                            end: d.end + comma.length,
-                            offset: comma.length,
+                            start: node.parent.parent.end,
+                            offset: 0,
                             stream: st(comma)
+                        });
+                    }
+                    else {
+                        updates.push({
+                            start: node.parent.parent.end,
+                            offset: 0,
+                            stream: st(';')
                         });
                     }
                     s.end(unparse(d));
                 });
             }
-            pushUpdate(node.parent.parent, '');
+            else {
+                updates.push({
+                    start: node.parent.parent.start,
+                    offset: node.parent.parent.end - node.parent.parent.start,
+                    stream: st()
+                });
+            }
         }
         else if (isreqm && node.parent.type === 'AssignmentExpression'
         && node.parent.left.type === 'Identifier') {
@@ -171,12 +165,19 @@ module.exports = function parse (modules, opts) {
                 var ex = cur.expressions;
                 var ix = ex.indexOf(node.parent);
                 if (ix >= 0) ex.splice(ix, 1);
-                pushUpdate(
-                    node.parent.parent,
-                    unparse(node.parent.parent)
-                );
+                updates.push({
+                    start: node.parent.parent.start,
+                    offset: node.parent.parent.end - node.parent.parent.start,
+                    stream: st(unparse(node.parent.parent))
+                });
             }
-            else pushUpdate(cur, '');
+            else {
+                updates.push({
+                    start: node.parent.parent.start,
+                    offset: node.parent.parent.end - node.parent.parent.start,
+                    stream: st()
+                });
+            }
         }
         else if (isreqm && node.parent.type === 'MemberExpression'
         && node.parent.property.type === 'Identifier'
@@ -185,19 +186,16 @@ module.exports = function parse (modules, opts) {
             varNames[node.parent.parent.id.name] = [
                 reqid, node.parent.property.name
             ];
-            var decs = node.parent.parent.parent.declarations;
+            var decNode = node.parent.parent.parent;
+            var decs = decNode.declarations;
             var ix = decs.indexOf(node.parent.parent);
             if (ix >= 0) decs.splice(ix, 1);
             
-            if (decs.length === 0) {
-                pushUpdate(node.parent.parent.parent, '');
-            }
-            else {
-                pushUpdate(
-                    node.parent.parent.parent,
-                    unparse(node.parent.parent.parent)
-                );
-            }
+            updates.push({
+                start: decNode.start,
+                offset: decNode.end - decNode.start,
+                stream: decs.length ? st(unparse(decNode)) : st()
+            });
         }
         else if (isreqm && node.parent.type === 'MemberExpression'
         && node.parent.property.type === 'Identifier') {
@@ -251,20 +249,18 @@ module.exports = function parse (modules, opts) {
                     + ' as a function'
                 );
             }
+
             var xvars = copy(vars);
             xvars[node.name] = val;
+
             var res = evaluate(node.parent, xvars);
-            
-            if (isStream(res)) {
+            if (res !== undefined) {
                 updates.push({
                     start: node.parent.start,
-                    end: node.parent.end,
-                    offset: 0,
-                    stream: wrapStream(res)
+                    offset: node.parent.end - node.parent.start,
+                    stream: isStream(res) ? wrapStream(res) : st(String(res))
                 });
-                pushUpdate(node.parent, '');
             }
-            else if (res !== undefined) pushUpdate(node.parent, res);
         }
         else if (node.parent.type === 'MemberExpression') {
             if (node.parent.property.type !== 'Identifier') {
@@ -293,17 +289,12 @@ module.exports = function parse (modules, opts) {
             xvars[node.name] = val;
             
             var res = evaluate(cur, xvars);
-            if (isStream(res)) {
+            if (res !== undefined) {
                 updates.push({
                     start: cur.start,
-                    end: cur.end,
                     offset: cur.end - cur.start,
-                    stream: wrapStream(res)
+                    stream: isStream(res) ? wrapStream(res) : st(String(res))
                 });
-                cur.update('');
-            }
-            else if (res !== undefined) {
-                pushUpdate(cur, res);
             }
         }
         else {
@@ -336,7 +327,7 @@ function wrapStream (s) {
 function st (msg) {
     var r = new Readable;
     r._read = function () {};
-    r.push(msg);
+    if (msg != null) r.push(msg);
     r.push(null);
     return r;
 }
