@@ -2,8 +2,6 @@
 
 convert module usage to inline expressions
 
-[![build status](https://secure.travis-ci.org/substack/static-module.png)](http://travis-ci.org/substack/static-module)
-
 # example
 
 Here's a simplified version of the [brfs](https://npmjs.org/package/brfs) module
