@@ -117,7 +117,7 @@ module.exports = function parse (modules, opts) {
                     
                     var s = parse(modules, {
                         skip: skip,
-                        skipOffset: skipOffset + d.init.start,
+                        skipOffset: skipOffset + (d.init ? d.init.start : 0),
                         vars: vars,
                         varNames: varNames
                     });

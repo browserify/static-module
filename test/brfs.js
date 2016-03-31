@@ -92,6 +92,28 @@ test('readFileSync attribute with multiple require vars', function (t) {
     }));
 });
 
+test('readFileSync attribute with multiple require vars including an uninitalized var', function (t) {
+    t.plan(2);
+    var sm = staticModule({
+        fs: {
+            readFileSync: function (file) {
+                return fs.createReadStream(file).pipe(quote());
+            }
+        }
+    }, { vars: { __dirname: path.join(__dirname, 'brfs') } });
+    readStream('multi_require_with_uninitialized.js').pipe(sm).pipe(concat(function (body) {
+        t.equal(body.toString('utf8'),
+            'var x;'
+            + '\nvar src = "beep boop\\n";'
+            + '\nconsole.log(src);\n'
+        );
+        vm.runInNewContext(body.toString('utf8'), {
+            console: { log: log }
+        });
+        function log (msg) { t.equal(msg, 'beep boop\n') }
+    }));
+});
+
 test('readFileSync attribute with multiple require vars x5', function (t) {
     t.plan(2);
     var sm = staticModule({
