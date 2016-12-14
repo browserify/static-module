@@ -21,6 +21,8 @@ module.exports = function parse (modules, opts) {
     var skip = opts.skip || {};
     var skipOffset = opts.skipOffset || 0;
     var updates = [];
+    var staticModuleNodes = {};
+    var dynamicModules = {};
     
     var output = through();
     var body;
@@ -34,6 +36,8 @@ module.exports = function parse (modules, opts) {
     }), output);
     
     function finish (src) {
+        clearStaticModules()
+
         var pos = 0;
         src = String(src);
         
@@ -150,10 +154,10 @@ module.exports = function parse (modules, opts) {
                 });
             }
             else {
-                updates.push({
+                staticModuleNodes[reqid] = staticModuleNodes[reqid] || [];
+                staticModuleNodes[reqid].push({
                     start: node.parent.parent.start,
-                    offset: node.parent.parent.end - node.parent.parent.start,
-                    stream: st()
+                    offset: node.parent.parent.end - node.parent.parent.start
                 });
             }
         }
@@ -172,10 +176,10 @@ module.exports = function parse (modules, opts) {
                 });
             }
             else {
-                updates.push({
+                staticModuleNodes[reqid] = staticModuleNodes[reqid] || [];
+                staticModuleNodes[reqid].push({
                     start: node.parent.parent.start,
-                    offset: node.parent.parent.end - node.parent.parent.start,
-                    stream: st()
+                    offset: node.parent.parent.end - node.parent.parent.start
                 });
             }
         }
@@ -260,6 +264,10 @@ module.exports = function parse (modules, opts) {
                     offset: node.parent.end - node.parent.start,
                     stream: isStream(res) ? wrapStream(res) : st(String(res))
                 });
+            } else {
+                for (var varName in xvars) {
+                    if (has(varNames, varName)) dynamicModules[varNames[varName]] = true;
+                }
             }
         }
         else if (node.parent.type === 'MemberExpression') {
@@ -295,6 +303,10 @@ module.exports = function parse (modules, opts) {
                     offset: cur.end - cur.start,
                     stream: isStream(res) ? wrapStream(res) : st(String(res))
                 });
+            } else {
+                for (var varName in xvars) {
+                    if (has(varNames, varName)) dynamicModules[varNames[varName]] = true;
+                }
             }
         }
         else {
@@ -302,6 +314,20 @@ module.exports = function parse (modules, opts) {
                 'unsupported type for static module: ' + node.parent.type
                 + '\nat expression:\n\n  ' + unparse(node.parent) + '\n'
             ));
+        }
+    }
+
+    function clearStaticModules () {
+        for (var moduleName in staticModuleNodes) {
+            if (has(dynamicModules, moduleName)) continue;
+            var nodes = staticModuleNodes[moduleName];
+            nodes.forEach(function (node) {
+                updates.unshift({
+                    start: node.start,
+                    offset: node.offset,
+                    stream: st()
+                });
+            });
         }
     }
 }
