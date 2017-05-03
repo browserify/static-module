@@ -27,7 +27,12 @@ module.exports = function parse (modules, opts) {
     return duplexer(concat(function (buf) {
         try {
             body = buf.toString('utf8').replace(/^#!/, '//#!');
-            falafel(body, { ecmaVersion: 6 }, walk);
+
+            for (var key in modules) {
+              if (body.indexOf(key) === -1) continue;
+              falafel(body, { ecmaVersion: 6 }, walk);
+              break;
+            }
         }
         catch (err) { return error(err) }
         finish(body);
