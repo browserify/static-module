@@ -20,6 +20,7 @@ module.exports = function parse (modules, opts) {
     var varModules = opts.varModules || {};
     var skip = opts.skip || {};
     var skipOffset = opts.skipOffset || 0;
+    var parserOpts = opts.parserOpts || { ecmaVersion: 6 };
     var updates = [];
     
     var output = through();
@@ -27,7 +28,7 @@ module.exports = function parse (modules, opts) {
     return duplexer(concat(function (buf) {
         try {
             body = buf.toString('utf8').replace(/^#!/, '//#!');
-            falafel(body, { ecmaVersion: 6 }, walk);
+            falafel(body, parserOpts, walk);
         }
         catch (err) { return error(err) }
         finish(body);
