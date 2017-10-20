@@ -13,7 +13,7 @@
     "quote-stream": "~1.0.2",
     "readable-stream": "~2.3.3",
     "shallow-copy": "~0.0.1",
-    "static-eval": "~0.2.0",
+    "static-eval": "^2.0.0",
     "through2": "~2.0.3"
   },
   "devDependencies": {
