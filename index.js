@@ -307,7 +307,9 @@ module.exports = function parse (modules, opts) {
                     return evaluate(arg, xvars);
                 });
 
-                res = callee.apply(null, args)
+                if (callee !== undefined) {
+                    res = callee.apply(null, args);
+                }
             }
 
             if (res !== undefined) {
