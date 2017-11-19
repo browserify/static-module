@@ -287,8 +287,31 @@ module.exports = function parse (modules, opts) {
             
             var xvars = copy(vars);
             xvars[node.name] = val;
-            
+
             var res = evaluate(cur, xvars);
+            if (res === undefined && cur.type === 'CallExpression') {
+                // static-eval can't safely evaluate code with callbacks, so do it manually in a safe way
+                var callee = evaluate(cur.callee, xvars);
+                var args = cur.arguments.map(function (arg) {
+                    // Return a function stub for callbacks so that `static-module` users
+                    // can do `callback.toString()` and get the original source
+                    if (arg.type === 'FunctionExpression' || arg.type === 'ArrowFunctionExpression') {
+                        var fn = function () {
+                            throw new Error('static-module: cannot call callbacks defined inside source code');
+                        };
+                        fn.toString = function () {
+                            return body.slice(arg.start, arg.end);
+                        };
+                        return fn;
+                    }
+                    return evaluate(arg, xvars);
+                });
+
+                if (callee !== undefined) {
+                    res = callee.apply(null, args);
+                }
+            }
+
             if (res !== undefined) {
                 updates.push({
                     start: cur.start,
