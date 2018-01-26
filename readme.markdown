@@ -97,6 +97,9 @@ var sm = staticModule({
 process.stdin.pipe(sm).pipe(process.stdout);
 ```
 
+Use `opts.parserOpts` to set additional options for the
+[acorn](https://github.com/acornjs/acorn) parser.
+
 # install
 
 With [npm](https://npmjs.org) do:
