@@ -309,7 +309,11 @@ module.exports = function parse (modules, opts) {
                 });
 
                 if (callee !== undefined) {
-                    res = callee.apply(null, args);
+                    try {
+                        res = callee.apply(null, args);
+                    } catch (err) {
+                        // Evaluate to undefined
+                    }
                 }
             }
 
