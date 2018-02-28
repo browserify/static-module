@@ -12,6 +12,7 @@ var inspect = require('object-inspect');
 var evaluate = require('static-eval');
 var copy = require('shallow-copy');
 var has = require('has');
+var MagicString = require('magic-string');
 
 module.exports = function parse (modules, opts) {
     if (!opts) opts = {};
@@ -22,12 +23,14 @@ module.exports = function parse (modules, opts) {
     var skipOffset = opts.skipOffset || 0;
     var parserOpts = opts.parserOpts || { ecmaVersion: 8 };
     var updates = [];
+    var sourcemapper;
     
     var output = through();
     var body;
     return duplexer(concat(function (buf) {
         try {
             body = buf.toString('utf8').replace(/^#!/, '//#!');
+            if (opts.sourceMap) sourcemapper = new MagicString(body);
             falafel(body, parserOpts, walk);
         }
         catch (err) { return error(err) }
@@ -46,11 +49,26 @@ module.exports = function parse (modules, opts) {
             pos = s.start + s.offset;
 
             s.stream.pipe(output, { end: false });
-            s.stream.on('end', next);
+            if (opts.sourceMap) {
+                s.stream.pipe(concat({ encoding: 'string' }, function (chunk) {
+                    // We have to give magic-string the replacement string,
+                    // so it can calculate the amount of lines and columns.
+                    sourcemapper.overwrite(s.start, s.start + s.offset, chunk);
+                })).on('finish', next);
+            } else {
+                s.stream.on('end', next);
+            }
         })();
         
         function done () {
             output.push(src.slice(pos));
+            if (opts.sourceMap) {
+                var map = sourcemapper.generateMap({
+                    source: opts.inputFilename || 'input.js',
+                    includeContent: true
+                });
+                output.push('//# sourceMappingURL=' + map.toUrl());
+            }
             output.push(null);
         }
     }
@@ -61,6 +79,11 @@ module.exports = function parse (modules, opts) {
     }
     
     function walk (node) {
+        if (opts.sourceMap) {
+            sourcemapper.addSourcemapLocation(node.start);
+            sourcemapper.addSourcemapLocation(node.end);
+        }
+
         var isreq = isRequire(node);
         var isreqm = false, isreqv = false, reqid;
         if (isreq) {

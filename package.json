@@ -9,6 +9,7 @@
     "escodegen": "~1.9.0",
     "falafel": "^2.1.0",
     "has": "^1.0.1",
+    "magic-string": "^0.22.4",
     "object-inspect": "~1.4.0",
     "quote-stream": "~1.0.2",
     "readable-stream": "~2.3.3",
@@ -17,7 +18,9 @@
     "through2": "~2.0.3"
   },
   "devDependencies": {
+    "convert-source-map": "^1.5.1",
     "resolve": "^1.5.0",
+    "source-map": "^0.6.1",
     "tape": "^4.8.0"
   },
   "scripts": {
