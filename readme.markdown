@@ -100,6 +100,10 @@ process.stdin.pipe(sm).pipe(process.stdout);
 Use `opts.parserOpts` to set additional options for the
 [acorn](https://github.com/acornjs/acorn) parser.
 
+Set `opts.sourceMap` to `true` to generate a source map and add it as an inline
+comment. You can add `opts.inputFilename` to configure the original file name
+that will be listed in the source map.
+
 # install
 
 With [npm](https://npmjs.org) do:
