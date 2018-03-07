@@ -39,7 +39,12 @@ module.exports = function parse (modules, opts) {
                 body = convertSourceMap.removeComments(body);
                 sourcemapper = new MagicString(body);
             }
-            falafel(body, parserOpts, walk);
+
+            for (var key in modules) {
+                if (body.indexOf(key) === -1) continue;
+                falafel(body, parserOpts, walk);
+                break;
+            }
         }
         catch (err) { return error(err) }
         finish(body);
