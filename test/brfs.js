@@ -138,11 +138,12 @@ test('readFileSync attribute with multiple require vars x5', function (t) {
         }
     }, { vars: { __dirname: path.join(__dirname, 'brfs') } });
     readStream('x5.js').pipe(sm).pipe(concat(function (body) {
-        t.equal(body.toString('utf8').replace(/;/g,''),
+        t.equal(body.toString('utf8'),
             'var a = 1, b = 2, c = 3, d = 4, '
             + 'src = "beep boop\\n",\n'
             + '  e = 5\n'
-            + 'console.log(src)\n'
+            + ';\n'
+            + 'console.log(src);\n'
         );
         vm.runInNewContext(body.toString('utf8'), {
             console: { log: log }
