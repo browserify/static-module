@@ -66,7 +66,11 @@ module.exports = function parse (modules, opts) {
                 s.stream.pipe(concat({ encoding: 'string' }, function (chunk) {
                     // We have to give magic-string the replacement string,
                     // so it can calculate the amount of lines and columns.
-                    sourcemapper.overwrite(s.start, s.start + s.offset, chunk);
+                    if (s.offset === 0) {
+                        sourcemapper.appendRight(s.start, chunk);
+                    } else {
+                        sourcemapper.overwrite(s.start, s.start + s.offset, chunk);
+                    }
                 })).on('finish', next);
             } else {
                 s.stream.on('end', next);
