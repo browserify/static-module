@@ -18,10 +18,7 @@ var mergeSourceMap = require('merge-source-map');
 module.exports = function parse (modules, opts) {
     if (!opts) opts = {};
     var vars = opts.vars || {};
-    var varNames = opts.varNames || {};
     var varModules = opts.varModules || {};
-    var skip = opts.skip || {};
-    var skipOffset = opts.skipOffset || 0;
     var parserOpts = copy(opts.parserOpts || {});
     var updates = [];
     var moduleBindings = [];
@@ -190,13 +187,11 @@ module.exports = function parse (modules, opts) {
         && node.parent.id.type === 'Identifier') {
             var binding = scan.getBinding(node.parent.id);
             if (binding) binding.value = varModules[reqid];
-            vars[node.parent.id.name] = varModules[reqid];
         }
         else if (isreqv && node.parent.type === 'AssignmentExpression'
         && node.parent.left.type === 'Identifier') {
             var binding = scan.getBinding(node.parent.left);
             if (binding) binding.value = varModules[reqid];
-            vars[node.parent.left.name] = varModules[reqid];
         }
         else if (isreqv && node.parent.type === 'MemberExpression'
         && isStaticProperty(node.parent.property)
@@ -205,7 +200,6 @@ module.exports = function parse (modules, opts) {
             var binding = scan.getBinding(node.parent.parent.id);
             var v = varModules[reqid][resolveProperty(node.parent.property)];
             if (binding) binding.value = v;
-            vars[node.parent.parent.id.name] = v;
         }
         else if (isreqv && node.parent.type === 'MemberExpression'
         && node.parent.property.type === 'Identifier') {
@@ -275,18 +269,6 @@ module.exports = function parse (modules, opts) {
     function traverse (node, val, binding) {
         for (var p = node; p; p = p.parent) {
             if (p.start === undefined || p.end === undefined) continue;
-            var key = (p.start + skipOffset)
-                + ',' + (p.end + skipOffset)
-            ;
-            if (skip[key]) {
-                skip[key] = false;
-                return;
-            }
-        }
-
-        if (skip[key]) {
-            skip[key] = false;
-            return;
         }
 
         if (node.parent.type === 'CallExpression') {
