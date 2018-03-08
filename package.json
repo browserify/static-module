@@ -16,7 +16,7 @@
     "object-inspect": "~1.4.0",
     "quote-stream": "~1.0.2",
     "readable-stream": "~2.3.3",
-    "scope-analyzer": "github:goto-bus-stop/scope-analyzer",
+    "scope-analyzer": "github:goto-bus-stop/scope-analyzer#es5",
     "shallow-copy": "~0.0.1",
     "static-eval": "^2.0.0",
     "through2": "~2.0.3"
