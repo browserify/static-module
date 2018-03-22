@@ -283,11 +283,6 @@ module.exports = function parse (modules, opts) {
             }
         }
         
-        if (skip[key]) {
-            skip[key] = false;
-            return;
-        }
-        
         if (node.parent.type === 'CallExpression') {
             if (typeof val !== 'function') {
                 return error(
