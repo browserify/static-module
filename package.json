@@ -21,6 +21,7 @@
   },
   "devDependencies": {
     "from2-string": "^1.1.0",
+    "nanobench": "^2.1.1",
     "quote-stream": "^1.0.2",
     "resolve": "^1.5.0",
     "source-map": "^0.6.1",
