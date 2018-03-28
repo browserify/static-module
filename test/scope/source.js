@@ -8,10 +8,3 @@ T.equal(
 )
 
 T.equal( fs.readFileSync(), 'read the file!' )
-
-{ // hello block scope
-    let fs = { readFileSync: () => 'abc' }
-    T.equal(fs.readFileSync(), 'abc')
-}
-
-T.equal( fs.readFileSync(), 'read the file!' )
