@@ -52,7 +52,6 @@ module.exports = function parse (modules, opts) {
             }
 
             ast = acorn.parse(body, parserOpts);
-            scan.createScope(ast, []); // TODO add this inside scope-analyzer
             // scan.crawl does .parent tracking, so we can use acorn's builtin walker.
             scan.crawl(ast);
             walkAst(ast, walk);
