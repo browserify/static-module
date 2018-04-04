@@ -33,6 +33,20 @@ module.exports = function parse (modules, opts) {
     return duplexer(concat(function (buf) {
         try {
             body = buf.toString('utf8').replace(/^#!/, '//#!');
+            var matches = false;
+            for (var key in modules) {
+                if (body.indexOf(key) !== -1) {
+                    matches = true;
+                    break;
+                }
+            }
+
+            if (!matches) {
+                // just pass it through
+                output.end(buf);
+                return;
+            }
+
             if (opts.sourceMap) {
                 inputMap = convertSourceMap.fromSource(body);
                 if (inputMap) inputMap = inputMap.toObject();
@@ -40,11 +54,7 @@ module.exports = function parse (modules, opts) {
                 sourcemapper = new MagicString(body);
             }
 
-            for (var key in modules) {
-                if (body.indexOf(key) === -1) continue;
-                falafel(body, parserOpts, walk);
-                break;
-            }
+            falafel(body, parserOpts, walk);
         }
         catch (err) { return error(err) }
         finish(body);
