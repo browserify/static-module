@@ -27,10 +27,10 @@ module.exports = function parse (modules, opts) {
     var updates = [];
     var sourcemapper;
     var inputMap;
-    
+
     var output = through();
     var body;
-    return duplexer(concat(function (buf) {
+    return duplexer(concat({ encoding: 'buffer' }, function (buf) {
         try {
             body = buf.toString('utf8').replace(/^#!/, '//#!');
             var matches = false;
@@ -59,11 +59,11 @@ module.exports = function parse (modules, opts) {
         catch (err) { return error(err) }
         finish(body);
     }), output);
-    
+
     function finish (src) {
         var pos = 0;
         src = String(src);
-        
+
         (function next () {
             if (updates.length === 0) return done();
             var s = updates.shift();
@@ -86,7 +86,7 @@ module.exports = function parse (modules, opts) {
                 s.stream.on('end', next);
             }
         })();
-        
+
         function done () {
             output.push(src.slice(pos));
             if (opts.sourceMap) {
@@ -104,12 +104,12 @@ module.exports = function parse (modules, opts) {
             output.push(null);
         }
     }
-    
+
     function error (msg) {
         var err = typeof msg === 'string' ? new Error(msg) : msg;
         output.emit('error', err);
     }
-    
+
     function walk (node) {
         if (opts.sourceMap) {
             sourcemapper.addSourcemapLocation(node.start);
@@ -123,7 +123,7 @@ module.exports = function parse (modules, opts) {
             isreqm = has(modules, reqid);
             isreqv = has(varModules, reqid);
         }
-        
+
         if (isreqv && node.parent.type === 'VariableDeclarator'
         && node.parent.id.type === 'Identifier') {
             vars[node.parent.id.name] = varModules[reqid];
@@ -146,7 +146,7 @@ module.exports = function parse (modules, opts) {
         else if (isreqv && node.parent.type === 'CallExpression') {
             //
         }
-        
+
         if (isreqm && node.parent.type === 'VariableDeclarator'
         && node.parent.id.type === 'Identifier') {
             varNames[node.parent.id.name] = reqid;
@@ -157,7 +157,7 @@ module.exports = function parse (modules, opts) {
                 dec = decs[ix];
                 decs.splice(ix, 1);
             }
-            
+
             if (decs.length) {
                 var src = unparse(node.parent.parent);
                 updates.push({
@@ -170,7 +170,7 @@ module.exports = function parse (modules, opts) {
                         + ',' + (d.end + skipOffset)
                     ;
                     skip[key] = true;
-                    
+
                     var s = parse(modules, {
                         skip: skip,
                         skipOffset: skipOffset + (d.init ? d.init.start : 0),
@@ -246,7 +246,7 @@ module.exports = function parse (modules, opts) {
             var decs = decNode.declarations;
             var ix = decs.indexOf(node.parent.parent);
             if (ix >= 0) decs.splice(ix, 1);
-            
+
             updates.push({
                 start: decNode.start,
                 offset: decNode.end - decNode.start,
@@ -271,7 +271,7 @@ module.exports = function parse (modules, opts) {
             };
             traverse(cur.callee, modules[reqid]);
         }
-        
+
         if (node.type === 'Identifier' && has(varNames, node.name)) {
             var vn = varNames[node.name];
             if (Array.isArray(vn)) {
@@ -280,7 +280,7 @@ module.exports = function parse (modules, opts) {
             else traverse(node, modules[vn]);
         }
     }
-    
+
     function traverse (node, val) {
         for (var p = node; p; p = p.parent) {
             if (p.start === undefined || p.end === undefined) continue;
@@ -292,12 +292,12 @@ module.exports = function parse (modules, opts) {
                 return;
             }
         }
-        
+
         if (skip[key]) {
             skip[key] = false;
             return;
         }
-        
+
         if (node.parent.type === 'CallExpression') {
             if (typeof val !== 'function') {
                 return error(
@@ -325,9 +325,9 @@ module.exports = function parse (modules, opts) {
                     + node.parent.source()
                 );
             }
-            
+
             var cur = node.parent.parent;
-            
+
             if (cur.type === 'MemberExpression') {
                 cur = cur.parent;
                 if (cur.type !== 'CallExpression'
@@ -340,7 +340,7 @@ module.exports = function parse (modules, opts) {
             && cur.type !== 'MemberExpression')) {
                 cur = node.parent;
             }
-            
+
             var xvars = copy(vars);
             xvars[node.name] = val;
 
