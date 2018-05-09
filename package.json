@@ -29,6 +29,7 @@
     "uglify-js": "3.3.12"
   },
   "scripts": {
+    "bench": "nanobench bench",
     "test": "tape test/*.js"
   },
   "repository": {
