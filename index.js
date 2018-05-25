@@ -295,7 +295,7 @@ module.exports = function parse (modules, opts) {
             if (!isStaticProperty(node.parent.property)) {
                 return error(
                     'dynamic property in member expression: '
-                    + node.parent.source()
+                    + body.slice(node.parent.start, node.parent.end)
                 );
             }
 
