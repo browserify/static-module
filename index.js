@@ -1,12 +1,11 @@
-var fs = require('fs');
-var path = require('path');
-
 var through = require('through2');
 var Readable = require('readable-stream').Readable;
 
 var concat = require('concat-stream');
 var duplexer = require('duplexer2');
-var falafel = require('falafel');
+var acorn = require('acorn-node');
+var walkAst = require('acorn-node/walk').full;
+var scan = require('scope-analyzer');
 var unparse = require('escodegen').generate;
 var inspect = require('object-inspect');
 var evaluate = require('static-eval');
@@ -19,17 +18,15 @@ var mergeSourceMap = require('merge-source-map');
 module.exports = function parse (modules, opts) {
     if (!opts) opts = {};
     var vars = opts.vars || {};
-    var varNames = opts.varNames || {};
     var varModules = opts.varModules || {};
-    var skip = opts.skip || {};
-    var skipOffset = opts.skipOffset || 0;
-    var parserOpts = opts.parserOpts || { ecmaVersion: 8 };
+    var parserOpts = copy(opts.parserOpts || {});
     var updates = [];
+    var moduleBindings = [];
     var sourcemapper;
     var inputMap;
 
     var output = through();
-    var body;
+    var body, ast;
     return duplexer(concat({ encoding: 'buffer' }, function (buf) {
         try {
             body = buf.toString('utf8').replace(/^#!/, '//#!');
@@ -54,15 +51,76 @@ module.exports = function parse (modules, opts) {
                 sourcemapper = new MagicString(body);
             }
 
-            falafel(body, parserOpts, walk);
+            ast = acorn.parse(body, parserOpts);
+            // scan.crawl does .parent tracking, so we can use acorn's builtin walker.
+            scan.crawl(ast);
+            walkAst(ast, walk);
         }
         catch (err) { return error(err) }
+
         finish(body);
     }), output);
 
     function finish (src) {
         var pos = 0;
         src = String(src);
+
+        moduleBindings.forEach(function (binding) {
+            if (binding.isReferenced()) {
+                return;
+            }
+            var node = binding.initializer;
+            if (node.type === 'VariableDeclarator') {
+                var i = node.parent.declarations.indexOf(node);
+                if (node.parent.declarations.length === 1) {
+                    // remove the entire declaration
+                    updates.push({
+                        start: node.parent.start,
+                        offset: node.parent.end - node.parent.start,
+                        stream: st()
+                    });
+                } else if (i === node.parent.declarations.length - 1) {
+                    updates.push({
+                        // remove ", a = 1"
+                        start: node.parent.declarations[i - 1].end,
+                        offset: node.end - node.parent.declarations[i - 1].end,
+                        stream: st()
+                    });
+                } else {
+                    updates.push({
+                        // remove "a = 1, "
+                        start: node.start,
+                        offset: node.parent.declarations[i + 1].start - node.start,
+                        stream: st()
+                    });
+                }
+            } else if (node.parent.type === 'SequenceExpression' && node.parent.expressions.length > 1) {
+                var i = node.parent.expressions.indexOf(node);
+                if (i === node.parent.expressions.length - 1) {
+                    updates.push({
+                        // remove ", a = 1"
+                        start: node.parent.expressions[i - 1].end,
+                        offset: node.end - node.parent.expressions[i - 1].end,
+                        stream: st()
+                    });
+                } else {
+                    updates.push({
+                        // remove "a = 1, "
+                        start: node.start,
+                        offset: node.parent.expressions[i + 1].start - node.start,
+                        stream: st()
+                    });
+                }
+            } else {
+                if (node.parent.type === 'ExpressionStatement') node = node.parent;
+                updates.push({
+                    start: node.start,
+                    offset: node.end - node.start,
+                    stream: st()
+                });
+            }
+        });
+        updates.sort(function(a, b) { return a.start - b.start; });
 
         (function next () {
             if (updates.length === 0) return done();
@@ -126,18 +184,21 @@ module.exports = function parse (modules, opts) {
 
         if (isreqv && node.parent.type === 'VariableDeclarator'
         && node.parent.id.type === 'Identifier') {
-            vars[node.parent.id.name] = varModules[reqid];
+            var binding = scan.getBinding(node.parent.id);
+            if (binding) binding.value = varModules[reqid];
         }
         else if (isreqv && node.parent.type === 'AssignmentExpression'
         && node.parent.left.type === 'Identifier') {
-            vars[node.parent.left.name] = varModules[reqid];
+            var binding = scan.getBinding(node.parent.left);
+            if (binding) binding.value = varModules[reqid];
         }
         else if (isreqv && node.parent.type === 'MemberExpression'
         && isStaticProperty(node.parent.property)
         && node.parent.parent.type === 'VariableDeclarator'
         && node.parent.parent.id.type === 'Identifier') {
+            var binding = scan.getBinding(node.parent.parent.id);
             var v = varModules[reqid][resolveProperty(node.parent.property)];
-            vars[node.parent.parent.id.name] = v;
+            if (binding) binding.value = v;
         }
         else if (isreqv && node.parent.type === 'MemberExpression'
         && node.parent.property.type === 'Identifier') {
@@ -149,109 +210,35 @@ module.exports = function parse (modules, opts) {
 
         if (isreqm && node.parent.type === 'VariableDeclarator'
         && node.parent.id.type === 'Identifier') {
-            varNames[node.parent.id.name] = reqid;
-            var decs = node.parent.parent.declarations;
-            var ix = decs.indexOf(node.parent);
-            var dec;
-            if (ix >= 0) {
-                dec = decs[ix];
-                decs.splice(ix, 1);
-            }
-
-            if (decs.length) {
-                var src = unparse(node.parent.parent);
-                updates.push({
-                    start: node.parent.parent.start,
-                    offset: node.parent.parent.end - node.parent.parent.start,
-                    stream: st('var ')
-                });
-                decs.forEach(function (d, i) {
-                    var key = (d.start + skipOffset)
-                        + ',' + (d.end + skipOffset)
-                    ;
-                    skip[key] = true;
-
-                    var s = parse(modules, {
-                        skip: skip,
-                        skipOffset: skipOffset + (d.init ? d.init.start : 0),
-                        vars: vars,
-                        varNames: varNames
-                    });
-                    var up = {
-                        start: node.parent.parent.end,
-                        offset: 0,
-                        stream: s
-                    };
-                    updates.push(up);
-                    if (i < decs.length - 1) {
-                        var comma;
-                        if (i === ix - 1) {
-                            comma = body.slice(d.end, dec.start);
-                        }
-                        else comma = body.slice(d.end, decs[i+1].start);
-                        updates.push({
-                            start: node.parent.parent.end,
-                            offset: 0,
-                            stream: st(comma)
-                        });
-                    }
-                    else {
-                        updates.push({
-                            start: node.parent.parent.end,
-                            offset: 0,
-                            stream: st(';')
-                        });
-                    }
-                    s.end(unparse(d));
-                });
-            }
-            else {
-                updates.push({
-                    start: node.parent.parent.start,
-                    offset: node.parent.parent.end - node.parent.parent.start,
-                    stream: st()
-                });
+            var binding = scan.getBinding(node.parent.id);
+            if (binding) {
+                binding.module = modules[reqid];
+                binding.initializer = node.parent;
+                binding.remove(node.parent.id);
+                moduleBindings.push(binding);
             }
         }
         else if (isreqm && node.parent.type === 'AssignmentExpression'
         && node.parent.left.type === 'Identifier') {
-            varNames[node.parent.left.name] = reqid;
-            var cur = node.parent.parent;
-            if (cur.type === 'SequenceExpression') {
-                var ex = cur.expressions;
-                var ix = ex.indexOf(node.parent);
-                if (ix >= 0) ex.splice(ix, 1);
-                updates.push({
-                    start: node.parent.parent.start,
-                    offset: node.parent.parent.end - node.parent.parent.start,
-                    stream: st(unparse(node.parent.parent))
-                });
-            }
-            else {
-                updates.push({
-                    start: node.parent.parent.start,
-                    offset: node.parent.parent.end - node.parent.parent.start,
-                    stream: st()
-                });
+            var binding = scan.getBinding(node.parent.left);
+            if (binding) {
+                binding.module = modules[reqid];
+                binding.initializer = node.parent;
+                binding.remove(node.parent.left);
+                moduleBindings.push(binding);
             }
         }
         else if (isreqm && node.parent.type === 'MemberExpression'
         && isStaticProperty(node.parent.property)
         && node.parent.parent.type === 'VariableDeclarator'
         && node.parent.parent.id.type === 'Identifier') {
-            varNames[node.parent.parent.id.name] = [
-                reqid, resolveProperty(node.parent.property)
-            ];
-            var decNode = node.parent.parent.parent;
-            var decs = decNode.declarations;
-            var ix = decs.indexOf(node.parent.parent);
-            if (ix >= 0) decs.splice(ix, 1);
-
-            updates.push({
-                start: decNode.start,
-                offset: decNode.end - decNode.start,
-                stream: decs.length ? st(unparse(decNode)) : st()
-            });
+            var binding = scan.getBinding(node.parent.parent.id);
+            if (binding) {
+                binding.module = modules[reqid][resolveProperty(node.parent.property)];
+                binding.initializer = node.parent.parent;
+                binding.remove(node.parent.parent.id);
+                moduleBindings.push(binding);
+            }
         }
         else if (isreqm && node.parent.type === 'MemberExpression'
         && isStaticProperty(node.parent.property)) {
@@ -272,30 +259,15 @@ module.exports = function parse (modules, opts) {
             traverse(cur.callee, modules[reqid]);
         }
 
-        if (node.type === 'Identifier' && has(varNames, node.name)) {
-            var vn = varNames[node.name];
-            if (Array.isArray(vn)) {
-                traverse(node, modules[vn[0]][vn[1]]);
-            }
-            else traverse(node, modules[vn]);
+        if (node.type === 'Identifier') {
+            var binding = scan.getBinding(node)
+            if (binding && binding.module) traverse(node, binding.module, binding);
         }
     }
 
-    function traverse (node, val) {
+    function traverse (node, val, binding) {
         for (var p = node; p; p = p.parent) {
             if (p.start === undefined || p.end === undefined) continue;
-            var key = (p.start + skipOffset)
-                + ',' + (p.end + skipOffset)
-            ;
-            if (skip[key]) {
-                skip[key] = false;
-                return;
-            }
-        }
-
-        if (skip[key]) {
-            skip[key] = false;
-            return;
         }
 
         if (node.parent.type === 'CallExpression') {
@@ -306,11 +278,12 @@ module.exports = function parse (modules, opts) {
                 );
             }
 
-            var xvars = copy(vars);
+            var xvars = getVars(node.parent, vars);
             xvars[node.name] = val;
 
             var res = evaluate(node.parent, xvars);
             if (res !== undefined) {
+                if (binding) binding.remove(node)
                 updates.push({
                     start: node.parent.start,
                     offset: node.parent.end - node.parent.start,
@@ -322,7 +295,7 @@ module.exports = function parse (modules, opts) {
             if (!isStaticProperty(node.parent.property)) {
                 return error(
                     'dynamic property in member expression: '
-                    + node.parent.source()
+                    + body.slice(node.parent.start, node.parent.end)
                 );
             }
 
@@ -341,7 +314,7 @@ module.exports = function parse (modules, opts) {
                 cur = node.parent;
             }
 
-            var xvars = copy(vars);
+            var xvars = getVars(cur, vars);
             xvars[node.name] = val;
 
             var res = evaluate(cur, xvars);
@@ -373,6 +346,7 @@ module.exports = function parse (modules, opts) {
             }
 
             if (res !== undefined) {
+                if (binding) binding.remove(node)
                 updates.push({
                     start: cur.start,
                     offset: cur.end - cur.start,
@@ -381,11 +355,12 @@ module.exports = function parse (modules, opts) {
             }
         }
         else if (node.parent.type === 'UnaryExpression') {
-            var xvars = copy(vars);
+            var xvars = getVars(node.parent, vars);
             xvars[node.name] = val;
 
             var res = evaluate(node.parent, xvars);
             if (res !== undefined) {
+                if (binding) binding.remove(node)
                 updates.push({
                     start: node.parent.start,
                     offset: node.parent.end - node.parent.start,
@@ -438,4 +413,22 @@ function st (msg) {
     if (msg != null) r.push(msg);
     r.push(null);
     return r;
+}
+
+function nearestScope(node) {
+    do {
+        var scope = scan.scope(node);
+        if (scope) return scope;
+    } while ((node = node.parent));
+}
+
+function getVars(node, vars) {
+    var xvars = copy(vars || {});
+    var scope = nearestScope(node);
+    if (scope) {
+        scope.forEachAvailable(function (binding, name) {
+            if (binding.hasOwnProperty('value')) xvars[name] = binding.value;
+        });
+    }
+    return xvars;
 }

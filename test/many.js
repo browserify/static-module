@@ -59,11 +59,12 @@ test('all inline', function (t) {
     readStream('all_inline.js').pipe(sm).pipe(concat(function (body) {
         Function(['console'],body)({ log: log });
         t.equal(
-            body.toString('utf8').replace(/;/g,''),
+            body.toString('utf8'),
             'var a = "A!\\n",\n'
             + '    b = "B!\\n",\n'
             + '    c = "C!\\n"\n'
-            + 'console.log(a + b + c)\n'
+            + ';\n'
+            + 'console.log(a + b + c);\n'
         );
         function log (msg) { t.equal(msg, 'A!\nB!\nC!\n') }
     }));
