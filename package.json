@@ -16,7 +16,7 @@
     "readable-stream": "~2.3.7",
     "scope-analyzer": "^2.1.1",
     "shallow-copy": "~0.0.1",
-    "static-eval": "^2.0.5",
+    "static-eval": "^2.1.0",
     "through2": "~2.0.5"
   },
   "devDependencies": {
