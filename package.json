@@ -25,7 +25,7 @@
     "quote-stream": "^1.0.2",
     "resolve": "^1.17.0",
     "source-map": "^0.6.1",
-    "tape": "^4.13.3",
+    "tape": "^5.0.1",
     "uglify-js": "3.3.12"
   },
   "scripts": {
