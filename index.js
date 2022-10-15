@@ -19,6 +19,7 @@ module.exports = function parse (modules, opts) {
     if (!opts) opts = {};
     var vars = opts.vars || {};
     var varModules = opts.varModules || {};
+    var evalOpts = { allowAccessToMethodsOnFunctions: opts.allowAccessToMethodsOnFunctions || false };
     var parserOpts = copy(opts.parserOpts || {});
     var updates = [];
     var moduleBindings = [];
@@ -281,7 +282,7 @@ module.exports = function parse (modules, opts) {
             var xvars = getVars(node.parent, vars);
             xvars[node.name] = val;
 
-            var res = evaluate(node.parent, xvars);
+            var res = evaluate(node.parent, xvars, evalOpts);
             if (res !== undefined) {
                 if (binding) binding.remove(node)
                 updates.push({
