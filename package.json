@@ -10,7 +10,7 @@
     "duplexer2": "~0.1.4",
     "escodegen": "^1.11.1",
     "has": "^1.0.1",
-    "magic-string": "0.25.1",
+    "magic-string": "0.30.2",
     "merge-source-map": "1.0.4",
     "object-inspect": "^1.6.0",
     "readable-stream": "~2.3.3",
